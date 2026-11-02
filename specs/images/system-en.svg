@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="460" viewBox="0 0 980 460">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .box{fill:#f8fafc;stroke:#94a3b8;stroke-width:1.5;rx:12}
+      .main{fill:#e0f2fe;stroke:#0284c7;stroke-width:2;rx:14}
+      .t{font-family:"Microsoft YaHei","PingFang SC",sans-serif;fill:#0f172a}
+      .h{font-size:18px;font-weight:700}
+      .s{font-size:13px;fill:#475569}
+      .l{font-size:12px;fill:#64748b}
+      .a{stroke:#475569;stroke-width:1.8;fill:none;marker-end:url(#arrow)}
+      .ad{stroke:#64748b;stroke-width:1.6;fill:none;stroke-dasharray:6 5;marker-end:url(#arrow)}
+    </style>
+  </defs>
+
+  <rect width="980" height="460" fill="#ffffff"/>
+
+  <!-- Phone/PC -->
+  <rect class="box" x="50" y="55" width="190" height="76"/>
+  <text class="t h" x="145" y="88" text-anchor="middle">Phone / PC</text>
+  <text class="t s" x="145" y="112" text-anchor="middle">WiFi / Browser</text>
+
+  <!-- 上位机 -->
+  <rect class="box" x="50" y="295" width="190" height="76"/>
+  <text class="t h" x="145" y="328" text-anchor="middle">SMT Machine Host</text>
+  <text class="t s" x="145" y="352" text-anchor="middle">M-code pass-through</text>
+
+  <!-- 主控 -->
+  <rect class="main" x="330" y="145" width="270" height="140"/>
+  <text class="t h" x="465" y="185" text-anchor="middle">Main Controller</text>
+  <text class="t s" x="465" y="213" text-anchor="middle">WiFi / Web UI</text>
+  <text class="t s" x="465" y="236" text-anchor="middle">M-code scheduling / counting</text>
+  <text class="t s" x="465" y="259" text-anchor="middle">RS-485 master</text>
+
+  <!-- 总线 -->
+  <line x1="600" y1="215" x2="745" y2="215" class="a"/>
+  <text class="t l" x="672" y="200" text-anchor="middle">RS-485</text>
+
+  <!-- Feeders -->
+  <rect class="box" x="755" y="150" width="170" height="130"/>
+  <text class="t h" x="840" y="185" text-anchor="middle">Feeders</text>
+  <text class="t s" x="840" y="211" text-anchor="middle">0 - 63</text>
+  <text class="t s" x="840" y="235" text-anchor="middle">Drive board + servo</text>
+  <text class="t s" x="840" y="259" text-anchor="middle">N20 + limits</text>
+
+  <!-- 手机 -> 主控 -->
+  <line x1="240" y1="96" x2="330" y2="175" class="a"/>
+  <text class="t l" x="292" y="122" text-anchor="middle">WiFi / HTTP</text>
+
+  <!-- 上位机 -> 主控 -->
+  <line x1="240" y1="330" x2="330" y2="255" class="a"/>
+  <text class="t l" x="286" y="312" text-anchor="middle">Serial</text>
+
+  <!-- Serial屏 -->
+  <rect class="box" x="365" y="355" width="200" height="62"/>
+  <text class="t h" x="465" y="382" text-anchor="middle">HMI Panel (optional)</text>
+  <text class="t s" x="465" y="403" text-anchor="middle">Local operation</text>
+  <line x1="465" y1="285" x2="465" y2="355" class="ad"/>
+  <text class="t l" x="485" y="326">Optional</text>
+
+  <!-- 电源/USB 注记 -->
+  <text class="t l" x="330" y="315">USB: debug / flash</text>
+  <text class="t l" x="330" y="337">Power: 5V / GND</text>
+</svg>
