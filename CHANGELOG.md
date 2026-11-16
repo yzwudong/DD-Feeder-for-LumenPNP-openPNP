@@ -1,5 +1,23 @@
 # Changelog
 
+## 26111605 — 2026-11-16
+
+### ESP32 controller
+
+- GitHub OTA repository changed to `yzwudong/DD-Feeder-for-LumenPNP-openPNP`.
+- Release asset names unchanged:
+  - `DDFC_*_OTA.bin`
+  - `DDFC_*_FS.bin`
+  - `DDF_*_APP.hex`
+- Online OTA now reads GitHub Releases (`/releases/latest`).
+- `FW_GITHUB_OWNER` / `FW_GITHUB_REPO` updated.
+
+### Feeder
+
+- Same feeder firmware as 26111603:
+  - power-on servo stagger by address / ChipID;
+  - RETRACT then PWM off.
+
 ## 26111603 — 2026-11-16
 
 ### ESP32 controller

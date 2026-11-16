@@ -9,8 +9,8 @@ Current release / 当前版本：
 
 | Device / 设备 | Version / 版本 | File / 文件 |
 |---|---|---|
-| ESP32 controller / 控制器 | 26111603 | [`firmware/esp32/DDFC_26111603_OTA.bin`](firmware/esp32/DDFC_26111603_OTA.bin) |
-| ESP32 web pages / 页面 | 2026111615b4f4e4 | [`firmware/esp32/DDFC_2026111615b4f4e4_FS.bin`](firmware/esp32/DDFC_2026111615b4f4e4_FS.bin) |
+| ESP32 controller / 控制器 | 26111605 | [`firmware/esp32/DDFC_26111605_OTA.bin`](firmware/esp32/DDFC_26111605_OTA.bin) |
+| ESP32 web pages / 页面 | 202611166b7821f1 | [`firmware/esp32/DDFC_202611166b7821f1_FS.bin`](firmware/esp32/DDFC_202611166b7821f1_FS.bin) |
 | Feeder / 飞达 | 26111603 | [`firmware/feeder/DDF_26111603_APP.hex`](firmware/feeder/DDF_26111603_APP.hex) |
 
 ESP32 升级需要同时更新 **OTA app** 和 **FS 页面**。  
@@ -26,8 +26,8 @@ See [CHANGELOG.md](CHANGELOG.md).
 ## SHA-256
 
 ```text
-1ad4788ea379f4de3500bd2838dd65abfa0e1bebb084b1e15a32c96451757344  DDFC_2026111615b4f4e4_FS.bin
-8abf82c8f7a6db345a5a049b718308e4ae578c2b06960c055154008b17f2dd1c  DDFC_26111603_OTA.bin
+6d6c1d354414dbee61bb540abbec9e58d0122bb0b36120dcfe2134aedd54e1d3  DDFC_202611166b7821f1_FS.bin
+0fa7d72a7b824e9eff6b79be66d7e9b323594cd360b896e2035334a0b138ddd7  DDFC_26111605_OTA.bin
 0e2894d875d1aebdcd89c59374c7417daeafcf0aa87e0e94c9fa9927f7514ef0  DDF_26111603_APP.hex
 ```
 
