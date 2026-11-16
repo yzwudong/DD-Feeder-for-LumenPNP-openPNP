@@ -1,5 +1,13 @@
 # Changelog
 
+## 26111606 — 2026-11-16
+
+### ESP32 controller
+
+- Fixed OTA version comparison between 8-digit release asset versions (26111606) and 10-digit firmware versions (2026111606).
+- Online OTA now correctly detects a newer release.
+- Release repository remains yzwudong/DD-Feeder-for-LumenPNP-openPNP.
+
 ## 26111605 — 2026-11-16
 
 ### ESP32 controller
