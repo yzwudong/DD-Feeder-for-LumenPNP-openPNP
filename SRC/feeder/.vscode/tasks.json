@@ -1,0 +1,47 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File scripts/build_app.ps1",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "rebuild",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File scripts/build_app.ps1",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "archive",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File build/rename_hex.ps1",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "build+archive",
+            "dependsOn": ["rebuild", "archive"],
+            "dependsOrder": "sequence",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "package feeder",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File scripts/package_release.ps1",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "build+package feeder",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File scripts/build_and_package.ps1",
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}

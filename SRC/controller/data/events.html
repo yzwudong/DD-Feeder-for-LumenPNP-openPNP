@@ -1,0 +1,288 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Event Log - SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+
+/* 面板 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+
+/* 事件列表 */
+.evlist{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow-y:auto}
+.evitem{display:flex;gap:12px;align-items:flex-start;background:#0f172a;border:1px solid var(--line);
+        border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6}
+.evitem .et{color:var(--mut);flex:none;font-family:ui-monospace,Consolas,monospace;font-size:12px;min-width:150px}
+.evitem .ed{flex:1;color:var(--tx);word-break:break-all}
+.evitem .tag{flex:none;font-size:11px;padding:2px 10px;border-radius:8px;font-weight:600;white-space:nowrap}
+.evitem.err .tag{background:#3b1d1d;color:var(--err)}
+.evitem.err{border-color:rgba(239,68,68,.45)}
+.evitem.ok .tag{background:#052e16;color:var(--ok)}
+.evitem.ok{border-color:rgba(34,197,94,.45)}
+.evitem.info .tag{background:#0c2733;color:var(--acc)}
+.evitem.warn .tag{background:#3b2a17;color:#e0a04a}
+.evitem.warn{border-color:rgba(245,158,11,.45)}
+.empty{color:var(--mut);text-align:center;padding:30px 0;font-size:13px}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+.rolebar{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;font-size:12px;background:#14532d;color:#bbf7d0}.rolebar.rolegray{background:#3f3f46;color:#a1a1aa}.hidden{display:none !important}</style>
+</head>
+<body>
+<header class="top">
+  <h1><span data-i18n="ev.title">事件日志</span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" class="on" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  <span class="rolebar" id="roleBar" style="display:none"></span></nav>
+</header>
+
+<div class="row">
+  <h2><span data-i18n="ev.desc">关键事件记录（电源故障 / OTA / 启动，掉电保留，最近 32 条）</span></h2>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="meta" id="clockMeta"></span>
+    <div style="margin-left:auto"></div>
+    <button class="btn sm" onclick="loadEv()" data-i18n="ev.refresh">刷新</button>
+  </div>
+  <div class="evlist" id="evList"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* 延迟加载 app.js */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+  loadEv();
+  setInterval(loadEv, 5000);
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，本页也独立可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.t = window.t || ((k) => ({
+  'nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.debug':'调测','nav.logout':'退出',
+  'ev.title':'事件日志','ev.desc':'关键事件记录（电源故障 / OTA / 启动，掉电保留，最近 32 条）',
+  'ev.refresh':'刷新','ev.empty':'暂无事件记录','ev.run':'运行','ev.timeUnknown':'无时间',
+  'ev.tagErr':'故障','ev.tagOk':'正常','ev.tagInfo':'信息','ev.tagWarn':'注意',
+  'ev.updating':'刷新中…','ev.timeHint':'时间：联网(NTP)显示实时时间；未联网显示运行时长',
+  'ev.sysBoot':'系统启动','ev.sysBootFmt':'固件 {0}，重启原因：{1}',
+  'ev.reason0':'上电','ev.reason1':'外部复位','ev.reason2':'软件复位','ev.reason3':'看门狗复位',
+  'ev.reason4':'异常崩溃','ev.reason5':'欠压复位','ev.reasonX':'其他',
+  'ev.pwrFault':'总线电源故障','ev.pwrFaultReset':'总线电源故障（已自动复位 {0} 次，累计 {1} 次）',
+  'ev.pwrFaultOff':'总线电源故障（自动复位超限，已保持关断，累计 {0} 次）',
+  'ev.pwrRecover':'总线电源故障恢复',
+  'ev.pwrOn':'总线电源已手动开启',
+  'ev.pwrLock':'总线电源自动重试终止（观察窗口内再次故障，已保持关断）',
+  'ev.otaEspOk':'ESP32 固件升级成功（{0} → {1}）',
+  'ev.otaEspFail':'ESP32 固件升级失败：{0}',
+  'ev.otaFsOk':'页面(FS)升级成功（{0}）',
+  'ev.otaFsFail':'页面(FS)升级失败：{0}',
+  'ev.otaDevOk':'飞达设备升级成功（地址 {0}）',
+  'ev.otaDevFail':'飞达设备升级失败（地址 {0}）：{1}',
+  'ev.unknown':'未知事件'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  opts.headers = Object.assign({ 'X-Auth-Token': (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '') }, opts.headers || {});
+  if (opts.body && typeof opts.body === 'object') {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const r = await fetch(path, Object.assign({}, opts, { signal: AbortSignal.timeout(10000) }));
+  if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+  return r.json();
+});
+window.esc = window.esc || (s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])));
+window.logout = window.logout || (async () => {
+  try { await window.api('/api/logout', { method: 'POST' }); } catch (e) {}
+  localStorage.removeItem('token');
+  location.href = '/login.html';
+});
+
+const evList = $('evList');
+
+function fmtRun(sec) {
+  const s = Number(sec) || 0;
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  if (h > 0) return h + 'h' + String(m).padStart(2, '0') + 'm';
+  if (m > 0) return m + 'm' + String(s % 60).padStart(2, '0') + 's';
+  return s + 's';
+}
+function reasonName(r) {
+  const k = 'ev.reason' + r;
+  return window.t ? t(k) : (['上电','外部复位','软件复位','看门狗复位','异常崩溃','欠压复位'][r] || t('ev.reasonX'));
+}
+
+/* 事件条目 -> {time, cls, text} */
+function evParse(raw) {
+  let time = '', rest = raw, m;
+  m = raw.match(/^\[(\d+)s\]\s+(.*)$/);                    // 旧格式 [123s]
+  if (m) { time = t('ev.run') + ' ' + fmtRun(m[1]); rest = m[2]; }
+  else {
+    m = raw.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(.*)$/);  // 实时时间
+    if (m) { time = m[1]; rest = m[2]; }
+    else {
+      m = raw.match(/^T\+(\d+)s\s+(.*)$/);                 // 无网 uptime
+      if (m) { time = t('ev.run') + ' ' + fmtRun(m[1]); rest = m[2]; }
+      else { time = t('ev.timeUnknown'); }
+    }
+  }
+  const sp = rest.indexOf(' ');
+  const type = sp > 0 ? rest.slice(0, sp) : rest;
+  const payload = sp > 0 ? rest.slice(sp + 1) : '';
+
+  if (type === 'SYS' && payload.startsWith('BOOT')) {
+    const vm = payload.match(/ver=(\S+)/), rm = payload.match(/reason=(\d+)/);
+    return { cls:'info', text: t('ev.sysBoot') + '：' + t('ev.sysBootFmt').replace('{0}', vm ? vm[1] : '?').replace('{1}', reasonName(rm ? rm[1] : '?')) };
+  }
+  if (type === 'PWR') {
+    if (payload.startsWith('FAULT reset#')) {
+      const n = payload.match(/reset#(\d+)/), c = payload.match(/cnt=(\d+)/);
+      return { cls:'err', text: t('ev.pwrFaultReset').replace('{0}', n?n[1]:'?').replace('{1}', c?c[1]:'?') };
+    }
+    if (payload.startsWith('FAULT off')) {
+      const c = payload.match(/cnt=(\d+)/);
+      return { cls:'err', text: t('ev.pwrFaultOff').replace('{0}', c?c[1]:'?') };
+    }
+    if (payload.startsWith('RECOVER')) return { cls:'ok', text: t('ev.pwrRecover') };
+    if (payload.startsWith('ON'))     return { cls:'ok', text: t('ev.pwrOn') };
+    if (payload.startsWith('LOCK'))   return { cls:'err', text: t('ev.pwrLock') };
+  }
+  if (type === 'OTA') {
+    const am = payload.match(/addr=(\d+)/);
+    if (payload.startsWith('ESP ok')) {
+      const f = payload.match(/ESP ok (\S+) -> (\S+)/);
+      return { cls:'info', text: t('ev.otaEspOk').replace('{0}', f?f[1]:'?').replace('{1}', f?f[2]:'?') };
+    }
+    if (payload.startsWith('ESP fail')) {
+      const f = payload.match(/ESP fail: (.*)/);
+      return { cls:'err', text: t('ev.otaEspFail').replace('{0}', f?f[1]:'?') };
+    }
+    if (payload.startsWith('FS ok')) {
+      const f = payload.match(/FS ok (\S+)/);
+      return { cls:'info', text: t('ev.otaFsOk').replace('{0}', f?f[1]:'?') };
+    }
+    if (payload.startsWith('FS fail')) {
+      const f = payload.match(/FS fail: (.*)/);
+      return { cls:'err', text: t('ev.otaFsFail').replace('{0}', f?f[1]:'?') };
+    }
+    if (payload.startsWith('DEV ok')) {
+      return { cls:'info', text: t('ev.otaDevOk').replace('{0}', am?am[1]:'?') };
+    }
+    if (payload.startsWith('DEV fail')) {
+      const f = payload.match(/DEV fail addr=\d+: (.*)/);
+      return { cls:'err', text: t('ev.otaDevFail').replace('{0}', am?am[1]:'?').replace('{1}', f?f[1]:'?') };
+    }
+  }
+  return { cls:'warn', text: t('ev.unknown') + '：' + rest };
+}
+
+async function loadEv() {
+  try {
+    const d = await api('/api/evlog');
+    const arr = Array.isArray(d) ? d : [];
+    evList.innerHTML = '';
+    if (arr.length === 0) {
+      evList.innerHTML = '<div class="empty">' + esc(t('ev.empty')) + '</div>';
+      return;
+    }
+    for (let i = arr.length - 1; i >= 0; i--) {           // 新的在前
+      const ev = evParse(arr[i]);
+      const row = document.createElement('div');
+      row.className = 'evitem ' + ev.cls;
+      row.innerHTML = `<span class="et">${esc(ev.time)}</span>` +
+                      `<span class="ed">${esc(ev.text)}</span>` +
+                      `<span class="tag">${t('ev.tag' + ev.cls.charAt(0).toUpperCase() + ev.cls.slice(1))}</span>`;
+      evList.appendChild(row);
+    }
+    const clock = $('clockMeta');
+    if (clock) clock.textContent = t('ev.timeHint');
+  } catch (e) {}
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,31 @@
+# dot files
+/.vscode/launch.json
+/.settings
+/.eide/log
+/.eide.usr.ctx.json
+
+# project out
+/build
+/bin
+/obj
+/out
+
+# eide template
+*.ept
+*.eide-template
+
+# iap_test build output
+/iap_test/build/
+
+
+# python cache
+__pycache__/
+
+
+# bootloader build
+/bootloader/build/
+
+
+# feeder release output
+/build/release/
+

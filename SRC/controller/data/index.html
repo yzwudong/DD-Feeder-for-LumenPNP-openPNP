@@ -1,0 +1,553 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .ip{font-size:12px;color:var(--mut);font-family:ui-monospace,Consolas,monospace;margin-left:4px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮（移动端 ≥44px 触控目标） */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.ok{background:var(--ok);color:#052e16;border-color:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.warn{background:#f59e0b;color:#fff}
+
+/* 面板 / 卡片 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:420px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;transition:.15s}
+.card:hover{border-color:var(--acc);transform:translateY(-2px)}
+.card.offline{opacity:.38;filter:grayscale(70%)}   /* 无飞达/未安装: 灰化 */
+.card.enabled{border-color:var(--ok)}              /* 使能: 绿边 */
+.card.disabled{border-color:#b45309;opacity:.6}    /* 禁用: 暗橙边 + 半透明 */
+.card.temp{border-color:#8b5cf6;background:#2a2340}  /* 临时飞达(addr=99): 紫色边 */
+.card.tempconf{border-color:var(--err);background:#3a1216} /* 临时栏中的冲突设备: 红边 */
+.card.tempboot{border-color:var(--warn);background:#3b2a12} /* 临时栏中的 BOOT 设备: 橙边 */
+.card.conflict{border-color:var(--err);background:#3a1216} /* 正式槽位地址冲突: 红边 */
+.warnbar{background:#3b1d1d;border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.6}
+.card .pos{font-weight:700;font-size:13px}
+.card .addr{font-size:13px;font-weight:700;color:var(--txt)}
+.card .cid{font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .ver{font-size:10px;color:var(--mut)}
+.st{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;margin-top:6px}
+.blinkb{margin-top:6px;padding:3px 8px;border-radius:8px;font-size:10px;background:#1e293b;color:var(--acc);border:1px solid var(--line);cursor:pointer}
+.blinkb:hover{background:var(--acc);color:#0b1220}
+.st.online{background:#052e16;color:var(--ok)}
+.st.offline{background:#1e293b;color:var(--mut)}
+.st.enabled{background:#052e16;color:var(--ok)}    /* 使能: 绿 */
+.st.disabled{background:#3b2a17;color:#e0a04a}     /* 禁用: 橙 */
+
+/* 使能 toggle 开关 */
+.ctlTxt{font-size:13px;color:var(--mut)}
+.switch{position:relative;display:inline-block;width:44px;height:24px;vertical-align:middle}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#475569;border-radius:24px;cursor:pointer;transition:.2s}
+.switch .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--ok)}
+.switch input:checked + .slider:before{transform:translateX(20px)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--off)}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+/* 表单 */
+.field{margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.field label{color:var(--mut);font-size:13px}
+.field input{background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+             padding:12px 14px;font-size:16px;min-height:44px;width:100%}
+input:focus{outline:none;border-color:var(--acc)}
+
+/* 键值 */
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:12px 0}
+.kv b{color:var(--mut);font-weight:400}
+.kv.lg{grid-template-columns:130px 1fr}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+
+/* 安全解锁条 */
+.unlockbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px;flex-wrap:wrap}
+.unlockbar.locked{background:rgba(239,68,68,.10);border:1px solid var(--err);color:#f87171}
+.unlockbar.unlocked{background:rgba(34,197,94,.10);border:1px solid var(--ok);color:#4ade80}
+.unlockbar .sttxt{flex:1;min-width:120px}
+
+/* 确认弹窗 */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 实时日志 */
+.logpanel{background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:10px;height:58vh;overflow-y:auto;
+          font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.7}
+.lrow{display:flex;gap:10px;padding:2px 6px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.lrow:nth-child(odd){background:rgba(255,255,255,.025)}
+.lrow .lt{color:#64748b;flex:none}
+.lrow .ld{flex:none;font-weight:600}
+.lrow.tx .ld{color:#f59e0b}
+.lrow.rx .ld{color:#38bdf8}
+.lrow .ldata{color:#e2e8f0}
+
+.rolebar{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;font-size:12px;background:#14532d;color:#bbf7d0}.rolebar.rolegray{background:#3f3f46;color:#a1a1aa}.hidden{display:none !important}</style>
+</head>
+<body>
+<header class="top">
+  <h1><span class="dot" id="wifiDot"></span> <span data-i18n="app.title">SMT 飞达控制器</span> <span class="ip" title="当前 IP"><!--IP--></span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  <span class="rolebar" id="roleBar" style="display:none"></span></nav>
+</header>
+
+<!-- 安全解锁条(位置同上一版; 点按钮弹出确认对话框) -->
+<div class="unlockbar locked" id="unlockBar">
+  <span class="sttxt" id="unlockOn" style="display:none"></span>
+  <span class="sttxt" id="unlockOff"></span>
+  <button class="btn sm warn" id="unlockBtn" onclick="toggleUnlock()"></button>
+</div>
+
+<div class="row" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+  <div class="meta">
+    <span data-i18n="meta.fw">固件</span> v<b id="fwVer">-</b>
+    <span data-i18n="meta.online">在线</span> <b id="online">0</b>/<span id="total">64</span>
+    <span data-i18n="meta.rssi">信号</span> <b id="rssi">-</b>
+    <span data-i18n="meta.ip">IP</span> <b id="ip">-</b>
+    <span data-i18n="meta.feed">推料</span> <b id="feedTotal">-</b>
+  </div>
+  <div style="margin-left:auto"></div>
+  <button class="btn sm" id="btnScan" data-i18n="meta.scan" onclick="scan()">扫描设备</button>
+  <button class="btn sm" id="btnPower" onclick="togglePower()" data-w>总线电源</button>
+  <button class="btn sm warn" data-i18n="meta.clearFeed" onclick="clearFeed()" data-w>清零计数</button>
+  <button class="btn sm hidden" id="btnProdRelease" onclick="releaseProduction()" data-w>解除生产锁</button>
+  <button class="btn sm" id="btnBuzzer" onclick="toggleBuzzer()" data-w>蜂鸣器:开</button>
+  <input type="range" id="buzzerVol" min="0" max="100" value="50" oninput="setBuzzerVol(this.value)"
+         style="width:70px;vertical-align:middle" title="蜂鸣器音量">
+  <span id="buzzerVolLbl" style="font-size:12px;min-width:34px">50%</span>
+</div>
+
+<!-- 未初始化/地址冲突 提示横幅 -->
+<div class="warnbar" id="warnBar" style="display:none"></div>
+<div class="warnbar" id="prodBar" style="display:none"></div>
+
+<div id="rows"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 服务器注入的会话 token(登录跳转时 URL 带 token, 服务器替换此占位符);
+ * 优先于 location.search/localStorage, 隐私/无痕模式下依旧可靠 */
+window.__TOKEN = '<!--TOKEN-->';
+/* ??? <script> ??????????/??????????????????? boot ? ReferenceError */
+window.loadMeta = window.loadMeta || (async () => {});
+window.renderRows = window.renderRows || (async () => {});
+/* 延迟加载 app.js: 不在 HTML 源码中写 <script src> -> 浏览器 preload scanner
+   不会在 document 传输期间提前并发下载; DOMContentLoaded 后才动态加载,
+   全程单请求, 避免 ESP32 单线程 WebServer 并发 reset */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+    /* 首屏请求严格串行: ESP32 WebServer 单线程, 并发>2 会丢 header(401)/reset,
+       逐个 await 保证每个请求完整收发后再发下一个 */
+    (async () => {
+      await loadMeta();                          // 顶部状态 /api/status
+      await loadPower();                         // 总线电源状态
+      await loadBuzzer();                        // 蜂鸣器开关/音量
+      await renderRows();                        // 卡片: 只读缓存数据
+    })();
+    /* 轮询合并为单个 5s 定时器, tick 内严格串行: ESP32 WebServer 4 连接上限,
+       并发轮询会占满连接导致页面加载/接口响应变慢(实测 2515 首页慢) */
+    setInterval(async () => {
+      await loadMeta();      // 顶部状态 /api/status
+      await loadPower();     // 总线电源状态
+      await renderRows();    // 卡片: 只读缓存数据
+    }, 5000);
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;                      // js 加载失败: 用兜底版继续(功能降级但可用)
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，总览页也独立可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.toast = window.toast || ((msg, isErr) => {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+});
+window.t = window.t || ((k) => ({
+  'app.title':'SMT 飞达控制器','nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.debug':'调测','nav.logout':'退出','nav.login':'登录设置',
+  'meta.online':'在线','meta.fw':'固件','meta.rssi':'信号','meta.ip':'IP','meta.scan':'扫描设备','meta.scanning':'扫描中…','meta.feed':'推料',
+  'meta.uninit':'⚠ 发现未初始化飞达','meta.conflict':'⚠ 地址冲突','meta.clearFeed':'清零计数',
+  'meta.power':'总线电源','meta.powerOn':'开','meta.powerOff':'关','meta.powerFault':'故障',
+  'meta.buzzer':'蜂鸣器','meta.buzzerOn':'开','meta.buzzerOff':'关',
+  'meta.powerOffConfirm':'关闭总线电源？所有飞达将断电！','nav.cancel':'取消',
+  'meta.clearFeedConfirm':'确认清零所有飞达的推料计数？此操作不可恢复！','meta.cleared':'已清零',
+  'feeder.blink':'闪烁定位','feeder.blinkStop':'停止闪烁',
+  'row.a':'A 排','row.b':'B 排','row.temp':'临时飞达','row.tempHint':'地址99(未配置)、地址冲突、BOOT(升级中断电) · 可进详情页配地址/校准',
+  'st.online':'在线','st.offline':'离线','st.enabled':'使能','st.disabled':'禁用','st.temp':'临时','st.conflict':'冲突','st.boot':'BOOT 待升级',
+  'unlock.unlocked':'已解锁','unlock.locked':'已锁定','unlock.lockBtn':'锁定','unlock.unlockBtn':'解锁操作'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  const o = Object.assign({}, opts);
+  o.headers = Object.assign({ 'X-Auth-Token': ((window.__TOKEN && window.__TOKEN !== '<!--TOKEN-->') ? window.__TOKEN : (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '')) }, opts.headers || {});
+  if (o.body && typeof o.body === 'object' && !(o.body instanceof FormData) && !(o.body instanceof Blob)) {
+    o.headers['Content-Type'] = 'application/json';
+    o.body = JSON.stringify(o.body);
+  }
+  const ac = new AbortController();
+  const tm = setTimeout(() => ac.abort(), 10000);
+  try {
+    const r = await fetch(path, Object.assign({}, o, { signal: ac.signal }));
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+    return await r.json();
+  } catch (e) { console.error('[api] failed:', path, e); return null; }
+  finally { clearTimeout(tm); }
+});
+window.updateUnlockBar = window.updateUnlockBar || (() => {
+  const on = document.getElementById('unlockOn'), off = document.getElementById('unlockOff'), btn = document.getElementById('unlockBtn');
+  const u = !!window.__unlocked;
+  if (on) { on.style.display = u ? '' : 'none'; on.textContent = '已解锁'; }
+  if (off) { off.style.display = u ? 'none' : ''; off.textContent = '已锁定'; }
+  if (btn) { btn.textContent = u ? '锁定' : '解锁操作'; btn.className = 'btn sm ' + (u ? '' : 'warn'); }
+});
+window.pollUnlock = window.pollUnlock || (() => {});
+window.toggleUnlock = window.toggleUnlock || (async () => {
+  if (window.__unlocked) {
+    window.__unlocked = false;
+    try { await window.api('/api/unlock?unlocked=0', { method: 'POST', body: { unlocked: false } }); } catch (e) {}
+    window.updateUnlockBar();
+    return;
+  }
+  const ok = confirm('解锁操作：请先停止贴片机飞达的当前动作，否则会导致动作混乱。确认解锁？');
+  if (!ok) return;
+  try {
+    const r = await window.api('/api/unlock?unlocked=1', { method: 'POST', body: { unlocked: true } });
+    if (r && r.ok && r.unlocked) { window.__unlocked = true; window.updateUnlockBar(); }
+  } catch (e) {}
+});
+/* 兜底: app.js 加载失败时, 解锁由 toggleUnlock 完成; 写操作不可用时明确提示 */
+window.ensureUnlock = window.ensureUnlock || (async () => {
+  if (window.__unlocked) return true;
+  await window.toggleUnlock();
+  return !!window.__unlocked;
+});
+window.confirmModal = window.confirmModal || (async (title, msg, okText) => confirm(msg));
+window.loadPower = window.loadPower || (async () => {});
+window.updatePowerBtn = window.updatePowerBtn || (() => {});
+window.togglePower = window.togglePower || (async () => toast('需加载 /js/app.js 后操作', true));
+window.blinkFeeder = window.blinkFeeder || (async () => toast('需加载 /js/app.js 后操作', true));
+
+let lastD = null, renderPending = false;
+/* 顶部状态区用轻量 /api/status（<100B, 弱网也不怕）独立刷新, 不再拉 64 台明细影响;
+   请求已由 app.js 全局队列串行化, 无需手动 __apiBusy 互斥 */
+async function loadMeta() {
+  let d = null;
+  try { d = await api('/api/status'); } catch (e) { d = null; }
+  if (renderPending) { renderPending = false; renderRows(); }   // 补跑被互斥挡下的渲染
+  if (!d) return;   // 失败静默, 5s 后自动再试
+  $('fwVer').textContent = d.fw || '-';
+  $('online').textContent = d.online;
+  $('total').textContent = d.total;
+  $('ip').textContent = d.ip || '-';
+  $('rssi').textContent = (d.rssi === undefined || d.rssi === null || d.rssi === -128) ? '-' : d.rssi + 'dBm';
+  $('feedTotal').textContent = d.feedTotal ?? '-';
+  $('wifiDot').classList.toggle('on', d.online > 0);
+  const pb = $('btnProdRelease');
+  if (pb) {
+    pb.classList.toggle('hidden', !d.prod);
+    pb.textContent = t('meta.releaseProd');
+  }
+  const prb = $('prodBar');
+  if (prb) {
+    prb.style.display = d.prod ? 'block' : 'none';
+    if (d.prod) prb.textContent = t('meta.prodLockedInfo');
+  }
+  window.__unlocked = !!d.unlocked;   // 统一状态变量(与 app.js 一致)
+  updateUnlockBar();
+  // 未初始化/地址冲突 提示(addr=99 出厂默认等)
+  const w = $('warnBar');
+  if (w) {
+    let msg = '';
+    if (d.uninit > 0) {
+      msg += t('meta.uninit') + ' ×' + d.uninit +
+             (d.uninitChip ? ' (ChipID ' + String(d.uninitChip).toUpperCase() + ')' : '');
+    }
+    if (d.conflicts && d.conflicts.length) {
+      msg += (msg ? '　' : '') + t('meta.conflict') + ': Addr ' + d.conflicts.join(', ');
+    }
+    w.style.display = msg ? 'block' : 'none';
+    w.textContent = msg;
+  }
+}
+
+async function renderRows() {
+  let d = null;
+  try { d = await api('/api/feeders'); lastD = d; }
+  catch (e) { d = lastD; }   // 失败保留上次成功数据, 卡片不闪烁
+  if (!d) {   // JSON 解析失败/接口异常: 明确提示, 不静默白屏
+    $('rows').innerHTML = '<div class="row"><h2 style="color:var(--err)">⚠ 数据加载失败</h2><p style="color:var(--mut)">/api/feeders 返回异常，请按 F12 查看控制台错误并反馈</p></div>';
+    return;
+  }
+
+  let html = '';
+
+  /* 临时飞达栏(addr=99 未配置 / 地址冲突) —— 放正式槽位上方, 优先引起注意 */
+  const tArr = d && d.temp ? d.temp : [];
+  console.log('[rows] feeders ok, temp count =', tArr.length);
+  if (tArr.length) {
+    html += `<div class="row"><h2>${t('row.temp')}  ·  ${t('row.tempHint')}</h2><div class="grid">`;
+    for (const tf of tArr) {
+      if (!tf.present) continue;       // 断电/清表后不保留离线卡
+      const isConflict = tf.addr >= 0 && tf.addr < 64;      // 0~63 的地址出现在临时表 => 地址冲突
+      const isBoot = !!tf.boot;
+      const cls = !tf.present ? 'temp offline'
+               : isBoot ? 'tempboot'
+               : isConflict ? 'tempconf' : 'temp';
+      const stKey = !tf.present ? 'st.offline' : (isBoot ? 'st.boot' : (isConflict ? 'st.conflict' : 'st.temp'));
+      const q0 = 'chipid=' + tf.chipid;
+      const tok = (window.__TOKEN && window.__TOKEN !== '<!--TOKEN-->') ? ('&token=' + encodeURIComponent(window.__TOKEN)) : '';
+      html += `<div class="card ${cls}" onclick="location.href='feeder.html?${q0}${tok}'">
+        <div class="addr">${isBoot ? 'BOOT' : 'Addr ' + tf.addr}${isConflict ? ' · ' + t('st.conflict') : ''}</div>
+        <div class="cid">ChipID: ${tf.chipid ? tf.chipid.toString(16).toUpperCase() : '-'}</div>
+        <div class="ver">${isBoot ? '升级中断电，需重新升级' : 'V' + (tf.fwVer || '-') + (tf.fw ? ' · FW' + Math.floor(tf.fw / 10000) + '.' + (tf.fw % 10000) : '')}</div>
+        <div><span class="st ${cls}">${t(stKey)}</span></div>
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+
+  /* 正式 64 位双排 */
+  for (let row = 0; row < 2; row++) {
+    const label = t(row === 0 ? 'row.a' : 'row.b');
+    html += `<div class="row"><h2>${label}  (${row * 32}~${row * 32 + 31})</h2><div class="grid">`;
+    for (let c = 0; c < 32; c++) {
+      const s = row * 32 + c, f = d ? d.feeders[s] : null;
+      const present = !!(f && f.present);
+      /* 槽位始终保留；断电时 present=false，显示为离线空槽，不删除 32 卡。 */
+      const en = f ? f.enabled : -1;  // /api/feeders 直接返回 1/0/-1
+      let cls, stKey;
+      if (f && f.conflict)  { cls = 'conflict';  stKey = 'st.conflict'; }  // 地址冲突: 优先红卡警示
+      else if (!present)    { cls = 'offline';   stKey = 'st.offline'; }
+      else if (en === 1)    { cls = 'enabled';   stKey = 'st.enabled'; }
+      else                  { cls = 'disabled';  stKey = 'st.disabled'; }
+      // 传 chipid 定位(地址可改); 未识别设备用 addr 兜底
+      const q = (f && f.chipid) ? ('chipid=' + f.chipid) : ('addr=' + s);
+      /* token: 服务器注入 __TOKEN(auth on 时非空)才带, 免登录模式不带 token 参数 */
+      const tok = (window.__TOKEN && window.__TOKEN !== '<!--TOKEN-->') ? ('&token=' + encodeURIComponent(window.__TOKEN)) : '';
+      html += `<div class="card ${cls}" onclick="location.href='feeder.html?${q}${tok}'">
+        <div class="addr">Addr ${f ? f.addr : s}</div>
+        <div class="cid">ChipID: ${f && f.chipid ? f.chipid.toString(16).toUpperCase() : '-'}</div>
+        <div class="ver">V${f ? (f.fwVer || '-') : '-'} · ${t('meta.feed')}:${f ? (f.feed || 0) : '-'}</div>
+        <div><span class="st ${cls}">${t(stKey)}</span></div>
+        ${f && f.chipid ? `<button class="blinkb" onclick="event.stopPropagation();blinkFeeder(${f.chipid},event)">${(window.__blinkMap && window.__blinkMap[f.chipid]) ? t('feeder.blinkStop') : t('feeder.blink')}</button>` : ''}
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+  $('rows').innerHTML = html;
+}
+
+/* 闪烁定位: M611 闪, M611 P<chipid> 冲突/未配置精确定位, 再点 M612 停止。
+ * 状态放 window 上, 列表每次重绘都要按它显示"停止闪烁"，否则按钮文案会自己变回
+ * "闪烁定位"，用户再点时实际发的是 M612，看起来像点击没生效/灯还在闪。 */
+window.__blinkMap = (() => {
+  try { return JSON.parse(localStorage.getItem('__blinkMap') || '{}') || {}; } catch (e) { return {}; }
+})();
+async function blinkFeeder(cid, ev) {
+  const map = window.__blinkMap;
+  const on = !map[cid];
+  try {
+    const d = await api('/api/command', { method: 'POST', body: { code: on ? 611 : 612, chipid: cid } });
+    if (d.ok) {
+      map[cid] = on;
+      try { localStorage.setItem('__blinkMap', JSON.stringify(map)); } catch (e) {}
+      if (ev && ev.target) ev.target.textContent = on ? t('feeder.blinkStop') : t('feeder.blink');
+      toast(on ? t('feeder.blink') : t('feeder.blinkStop'));
+    }
+  } catch (e) { errToast(e); }
+}
+
+/* 485 总线电源开关(GPIO->MOS/SGM2593AD, 需解锁; 默认开) */
+let __pwrOn = true, __pwrFault = false;
+async function loadPower() {
+  try {
+    const d = await api('/api/power');
+    if (d && d.on !== undefined) { __pwrOn = !!d.on; __pwrFault = !!d.fault; updatePowerBtn(); }
+  } catch (e) {}
+}
+
+/* 蜂鸣器(错误提示音): 开关 + 音量滑条, 设置无需解锁 */
+let __buzOn = true, __buzVol = 50, _bzTimer = 0;
+async function loadBuzzer() {
+  try {
+    const d = await api('/api/buzzer');
+    if (d) { __buzOn = !!d.on; __buzVol = d.vol; updateBuzzer(); }
+  } catch (e) {}
+}
+function updateBuzzer() {
+  const b = $('btnBuzzer');
+  if (b) {
+    b.textContent = t('meta.buzzer') + ':' + (__buzOn ? t('meta.buzzerOn') : t('meta.buzzerOff'));
+    b.classList.remove('ok', 'danger');
+    b.classList.add(__buzOn ? 'ok' : 'danger');
+  }
+  const v = $('buzzerVol'), l = $('buzzerVolLbl');
+  if (v) v.value = __buzVol;
+  if (l) l.textContent = __buzVol + '%';
+}
+async function toggleBuzzer() {
+  __buzOn = !__buzOn; updateBuzzer();
+  try { await api('/api/buzzer', { method: 'POST', body: { on: __buzOn ? 1 : 0 } }); }
+  catch (e) { loadBuzzer(); }
+}
+function setBuzzerVol(v) {
+  __buzVol = Number(v);
+  const l = $('buzzerVolLbl'); if (l) l.textContent = __buzVol + '%';
+  clearTimeout(_bzTimer);   // 滑条拖动防抖: 300ms 内合并为一次 POST
+  _bzTimer = setTimeout(async () => {
+    try { await api('/api/buzzer', { method: 'POST', body: { vol: __buzVol } }); } catch (e) {}
+  }, 300);
+}
+function updatePowerBtn() {
+  const b = $('btnPower');
+  if (!b) return;
+  // 故障优先显示: nFAULT 拉低(过流/过热/反压), 需人工处理
+  if (__pwrFault) {
+    b.textContent = t('meta.power') + ':' + t('meta.powerFault');
+    b.classList.remove('ok', 'danger', 'warn');
+    b.classList.add('danger');
+    return;
+  }
+  b.textContent = t('meta.power') + ':' + (__pwrOn ? t('meta.powerOn') : t('meta.powerOff'));
+  // 电源状态色: 开=绿(ok), 关=红(danger)
+  b.classList.remove('ok', 'danger', 'warn');
+  b.classList.add(__pwrOn ? 'ok' : 'danger');
+}
+async function togglePower() {
+  if (!(await ensureUnlock())) { toast(t('unlock.need'), true); return; }
+  const turnOff = __pwrOn;
+  if (turnOff &&
+      !(await confirmModal(t('meta.power'), t('meta.powerOffConfirm'), t('meta.powerOff'), t('nav.cancel')))) return;
+  try {
+    const d = await api('/api/power', { method: 'POST', body: { on: turnOff ? 0 : 1 } });
+    if (d && d.ok) {
+      __pwrOn = !!d.on; updatePowerBtn();
+      await renderRows();   // 关/开总电源后立即清空/重建表格
+      toast(__pwrOn ? t('meta.powerOn') : t('meta.powerOff'));
+    }
+  } catch (e) { errToast(e); }
+}
+
+async function scan() {
+  const btn = $('btnScan');
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = t('meta.scanning') + '…';   // 进度反馈: 按钮文字变化 + toast
+  toast(t('meta.scan') + '…');
+  try {
+    await api('/api/scan', { method: 'POST' });   // M602 N255 一次性快速扫描, 非周期
+    setTimeout(renderRows, 2200);   // 等 N255 收集完成(~1.5s)后刷新显示
+  } finally {
+    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 1500);
+  }
+}
+
+async function clearFeed() {
+  if (!confirm(t('meta.clearFeedConfirm'))) return;
+  if (!window.__unlocked) { await toggleUnlock(); if (!window.__unlocked) return; }   // 清零需先解锁
+  try {
+    await api('/api/feed/clear', { method: 'POST' });
+    toast(t('feeder.cleared'));
+    loadMeta().then(() => renderRows());
+  } catch (e) { errToast(e); }
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

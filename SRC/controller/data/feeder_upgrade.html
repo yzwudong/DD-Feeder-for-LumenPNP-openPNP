@@ -1,0 +1,547 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Feeder Upgrade - SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮（移动端 ≥44px 触控目标） */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.warn{background:var(--warn);color:#1a1205;border-color:var(--warn)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.on{background:var(--acc);color:#06283b;border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.btn.sm{min-height:34px;padding:6px 10px;font-size:12px}
+
+/* 确认弹窗(解锁等): 本页原先缺这段 CSS, confirmModal 会按普通 div 排在页面末尾 */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 卡片 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.row2{display:flex;gap:14px;flex-wrap:wrap}
+.row2 .row{flex:1 1 300px}
+
+/* 键值 */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv b{color:var(--mut);font-weight:400}
+.kv.lg b{color:var(--mut);font-weight:400;min-width:110px}
+
+/* 表单 */
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{color:var(--mut);font-size:12px}
+input[type=text],input[type=number],input[type=password],select{
+  background:#0f172a;color:var(--tx);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;font-size:14px;min-height:44px;width:100%}
+input:disabled,select:disabled{opacity:.5}
+input[type=file]{color:var(--tx);font-size:13px;width:100%}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--acc)}
+
+.cfgGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.hint{color:var(--mut);font-size:12px;margin-top:8px;white-space:pre-line}
+.hint b{color:var(--warn)}
+
+/* 进度条 */
+.pbar{height:14px;background:#0f172a;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:10px}
+.pbar>div{height:100%;width:0%;background:var(--acc);transition:width .3s}
+.pstage{display:flex;justify-content:space-between;gap:10px;margin-top:8px;color:var(--mut);font-size:12px;flex-wrap:wrap}
+.pstage b{color:var(--tx)}
+
+/* 解锁条 */
+.unlockbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);
+           border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.unlockbar .sttxt{color:var(--mut);font-size:13px}
+.unlockbar.locked{border-color:var(--warn)}
+.unlockbar.unlocked{border-color:var(--ok)}
+.unlockbar.unlocked .sttxt{color:var(--ok)}
+
+/* 状态/结果 */
+.stat{font-size:14px;margin-top:8px;min-height:22px;line-height:1.6}
+.stat.ok{color:var(--ok)}
+.stat.err{color:var(--err)}
+.stat.warn{color:var(--warn)}
+
+/* 日志 / toast */
+.log{background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+     font:12px/1.5 Consolas,monospace;color:#94a3b8;max-height:220px;overflow:auto;margin-bottom:14px;white-space:pre-wrap}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#334155;color:var(--tx);
+       border-radius:10px;padding:10px 18px;font-size:14px;z-index:99;display:none;max-width:90vw}
+.toast.err{background:var(--err);color:#fff}
+.tabrow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.tabrow button{flex:1;min-width:120px}
+@media(max-width:520px){nav{width:100%}nav a{flex:1;justify-content:center}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1 id="titlePos">Feeder Upgrade</h1>
+  <div class="sp"></div>
+  <div class="meta"><span id="fwBadge"></span></div>
+  <div class="lang">
+    <button id="langZh" class="on" onclick="setLang('zh')">中</button>
+    <button id="langEn" onclick="setLang('en')">EN</button>
+  </div>
+  <!-- 导航与其它页面一致: 位于顶栏同一行 -->
+  <nav id="nav">
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  </nav>
+</header>
+
+<!-- 安全解锁条(位置同上一版; 点按钮弹出确认对话框) -->
+<div class="unlockbar locked" id="unlockBar">
+  <span class="sttxt" id="unlockOn" style="display:none"></span>
+  <span class="sttxt" id="unlockOff"></span>
+  <button class="btn sm warn" id="unlockBtn" onclick="toggleUnlock()"></button>
+</div>
+
+<!-- 目标飞达 -->
+<div class="row">
+  <h2 data-i18n="fup.target">目标飞达</h2>
+  <div class="kv lg">
+    <b data-i18n="fup.addr">485 地址</b><span id="kvAddr">-</span>
+    <b data-i18n="fup.chipid">ChipID</b><span id="kvChip">-</span>
+    <b data-i18n="fup.boardFw">板上固件</b><span id="kvBoard"><a href="javascript:loadBoard()" data-i18n="fup.readBoard">读取</a></span>
+    <b data-i18n="fup.pkgFw">包固件</b><span id="kvPkg">-</span>
+  </div>
+</div>
+
+<!-- 包来源 -->
+<div class="row">
+  <h2 data-i18n="fup.source">固件包来源</h2>
+  <div class="tabrow">
+    <button class="btn on" id="tabLocal" onclick="setSrc('local')" data-i18n="fup.srcLocal">本地上传</button>
+    <button class="btn" id="tabGh" onclick="setSrc('github')" data-i18n="fup.srcGithub">GitHub 在线</button>
+  </div>
+
+  <!-- 本地上传 -->
+  <div id="pnLocal">
+    <div class="field">
+      <label data-i18n="fup.pickHex">选择从机固件 hex 文件（Intel HEX，含 DDFW: 版本标识）</label>
+      <input type="file" id="hexFile" accept=".hex,.txt">
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn acc" id="upBtn" onclick="uploadHex()" data-i18n="fup.upload">上传并校验</button>
+    </div>
+    <div class="stat" id="upStat"></div>
+    <div class="hint" id="upHint" data-i18n="fup.localHint">上传后仅保存在内存中，校验通过即可升级；不会写入文件系统。</div>
+  </div>
+
+  <!-- GitHub 在线 -->
+  <div id="pnGh" style="display:none">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn" id="ghCheckBtn" onclick="checkGithub()" data-i18n="fup.ghCheck">检查 GitHub 最新版</button>
+      <span class="stat" id="ghStat" style="margin-top:0"></span>
+    </div>
+    <div class="kv lg" style="margin-top:10px">
+      <b data-i18n="fup.ghAsset">Release 固件</b><span id="ghAsset">-</span>
+      <b data-i18n="fup.ghVer">远程版本</b><span id="ghVer">-</span>
+    </div>
+  </div>
+</div>
+
+<!-- 升级控制 -->
+<div class="row">
+  <h2 data-i18n="fup.ctl">升级</h2>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+    <input type="checkbox" id="forceDowngrade">
+    <span data-i18n="fup.force">强制升级（允许同版本重刷/降级）</span>
+  </label>
+  <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn acc" id="goBtn" onclick="startUp()" data-w data-i18n="fup.go">开始升级</button>
+    <button class="btn sm" onclick="location.href=backUrl()" data-i18n="fup.back">返回详情页</button>
+  </div>
+  <div class="pbar"><div id="upBar"></div></div>
+  <div class="pstage">
+    <span><b id="upState"></b></span>
+    <span id="upPct"></span>
+  </div>
+  <div class="stat" id="upStat2"></div>
+  <div class="hint" id="upWarn" data-i18n="fup.warn">升级过程中请勿断电/断开连接；烧写完成后设备自动复位，回校版本一致即成功。</div>
+</div>
+
+<!-- 升级过程实时日志: 常显; 未升级时显示提示, 升级开始后增量追加 -->
+<div class="row" id="pnLog">
+  <h2 data-i18n="fup.log">升级日志</h2>
+  <div class="log" id="upLog" style="max-height:280px">等待升级…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 延迟加载 app.js（与其它页面一致） */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+    setInterval(pollUnlock, 2000);
+    updateUnlockBar();
+    init();
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: app.js 加载失败时本页仍可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.toast = window.toast || ((msg, isErr) => {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+});
+window.t = window.t || ((k) => ({
+  'app.title':'SMT 飞达控制器','nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.login':'登录设置','nav.logout':'退出',
+  'fup.target':'目标飞达','fup.chooseTarget':'选择目标（正式飞达 / N99 临时飞达）','fup.n99Manual':'手动 N99','fup.n99Scan':'刷新 N99','fup.addr':'485 地址','fup.chipid':'ChipID','fup.boardFw':'板上固件','fup.readBoard':'读取','fup.pkgFw':'包固件',
+  'fup.source':'固件包来源','fup.srcLocal':'本地上传','fup.srcGithub':'GitHub 在线',
+  'fup.pickHex':'选择从机固件 hex 文件（Intel HEX，含 DDFW: 版本标识）','fup.upload':'上传并校验','fup.localHint':'上传后仅保存在内存中，校验通过即可升级；不会写入文件系统。',
+  'fup.ghCheck':'检查 GitHub 最新版','fup.ghAsset':'Release 固件','fup.ghVer':'远程版本',
+  'fup.ctl':'升级','fup.force':'强制升级（允许同版本重刷/降级）','fup.go':'开始升级','fup.back':'返回详情页','fup.warn':'升级过程中请勿断电/断开连接；烧写完成后设备自动复位，回校版本一致即成功。','fup.log':'升级日志',
+  'unlock.unlocked':'已解锁','unlock.locked':'已锁定','unlock.lockBtn':'锁定','unlock.unlockBtn':'解锁操作',
+  'unlock.title':'解锁操作','unlock.warn':'解锁后将允许向 485 总线发送控制指令。\n请务必先停止贴片机飞达的当前动作，否则会导致动作混乱！',
+  'unlock.btn':'确认解锁','unlock.cancel':'取消','unlock.fail':'解锁失败','unlock.need':'请先解锁操作',
+  'fup.state.idle':'就绪','fup.state.downloading':'下载中','fup.state.parsing':'解析包','fup.state.comparing':'版本比对','fup.state.isp':'ISP 烧写','fup.state.verify':'回校','fup.state.done':'完成','fup.state.error':'失败'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  const o = Object.assign({}, opts);
+  o.headers = Object.assign({ 'X-Auth-Token': (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '') }, opts.headers || {});
+  if (o.body && typeof o.body === 'object' && !(o.body instanceof FormData) && !(o.body instanceof Blob)) {
+    o.headers['Content-Type'] = 'application/json';
+    o.body = JSON.stringify(o.body);
+  }
+  const ac = new AbortController();
+  const tm = setTimeout(() => ac.abort(), 15000);
+  try {
+    const r = await fetch(path, Object.assign({}, o, { signal: ac.signal }));
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+    return await r.json();
+  } finally { clearTimeout(tm); }
+});
+window.updateUnlockBar = window.updateUnlockBar || (() => {
+  const on = document.getElementById('unlockOn'), off = document.getElementById('unlockOff'), btn = document.getElementById('unlockBtn');
+  const u = !!window.__unlocked;
+  if (on) { on.style.display = u ? '' : 'none'; on.textContent = '已解锁'; }
+  if (off) { off.style.display = u ? 'none' : ''; off.textContent = '已锁定'; }
+  if (btn) { btn.textContent = u ? '锁定' : '解锁操作'; btn.className = 'btn sm ' + (u ? '' : 'warn'); }
+});
+window.pollUnlock = window.pollUnlock || (async () => {
+  try {
+    const d = await window.api('/api/unlock/status');
+    window.__unlocked = !!(d && d.unlocked);
+    window.updateUnlockBar();
+  } catch (e) {}
+});
+window.ensureUnlock = window.ensureUnlock || (async () => {
+  if (window.__unlocked) return true;
+  const ok = confirm('解锁操作：请先停止贴片机飞达的当前动作，否则会导致混乱。确认解锁？');
+  if (!ok) return false;
+  try {
+    const r = await window.api('/api/unlock?unlocked=1', { method: 'POST', body: { unlocked: true } });
+    if (r && r.ok && r.unlocked) { window.__unlocked = true; window.updateUnlockBar(); return true; }
+  } catch (e) {}
+  return false;
+});
+window.toggleUnlock = window.toggleUnlock || (async () => {
+  if (window.__unlocked) {
+    window.__unlocked = false;
+    try { await window.api('/api/unlock?unlocked=0', { method: 'POST', body: { unlocked: false } }); } catch (e) {}
+    window.updateUnlockBar();
+  } else { await window.ensureUnlock(); }
+});
+window.__unlocked = window.__unlocked || false;
+window.esc = window.esc || (s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])));
+window.setLang = window.setLang || (() => {});
+
+/* ---------------- 页面逻辑 ---------------- */
+const qp = new URLSearchParams(location.search);
+let chipQ = parseInt(qp.get('chipid'), 10) || 0;
+let slot = parseInt(qp.get('addr') ?? '', 10);
+let addr0 = isNaN(slot) ? -1 : slot;                // chipid+addr 同时带时先用 addr, init 再以 API 为准
+let src = 'local';            // local | github
+let pkgVer = '';              // 已校验包版本
+let pkgReady = false;
+let ghUrl = '';               // GitHub 远程固件地址
+let ghTag = '';
+let busy = false;             // 升级进行中
+let pollTimer = null;
+let logLast = '';             // 升级日志已显示的最后一条(增量追加)
+
+/* 升级日志增量显示: 后端环形缓冲全量返回, 找到已显示的最后一条之后追加 */
+function showLog(r){
+  const pn = $('pnLog'), box = $('upLog');
+  if (!pn || !box || !r || !r.log || !r.log.length) return;
+  pn.style.display = '';
+  const arr = r.log;
+  if (arr[arr.length - 1] === logLast) return;         /* 无新内容 */
+  /* 全量按行重绘: 增量拼接在部分浏览器/环形覆盖时会吞掉换行 */
+  box.textContent = arr.join('\n');
+  logLast = arr[arr.length - 1];
+  box.scrollTop = box.scrollHeight;
+}
+
+function backUrl(){
+  const t = new URLSearchParams(location.search).get('token');
+  let u = chipQ ? ('feeder.html?chipid=' + chipQ) : (addr0 >= 0 ? ('feeder.html?addr=' + addr0) : 'index.html');
+  if (t) u += '&token=' + t;
+  return u;
+}
+
+/* chipid 统一 6 位大写 hex 显示(与协议应答 CHIP:F724C4 一致) */
+function cidHex(v){ v = Number(v) || 0; return ('000000' + v.toString(16).toUpperCase()).slice(-6); }
+
+async function init(){
+  /* 目标飞达卡: 地址/ChipID 来自 URL, 本页不再做 N99 选择 */
+  if (!isNaN(slot)) { $('kvAddr').textContent = 'Addr ' + slot; $('titlePos').textContent = 'Addr ' + slot + ' 升级'; }
+  else if (chipQ) { $('kvAddr').textContent = '…'; $('titlePos').textContent = 'ChipID ' + cidHex(chipQ) + ' 升级'; }
+  else { $('kvAddr').textContent = '-'; $('goBtn').disabled = true; }
+  // 详情页跳转带入 ChipID 显示; /api/feeder 返回无 ok 字段, 直接判 r.chipid/r.addr
+  const r = await api('/api/feeder' + (chipQ ? ('?chipid=' + chipQ) : (isNaN(slot) ? '' : ('?addr=' + slot)))).catch(() => null);
+  if (r && r.error) { $('kvAddr').textContent = '设备未识别'; $('goBtn').disabled = true; }
+  else if (r && r.addr !== undefined) { addr0 = r.addr; $('kvAddr').textContent = (r.addr === 99 ? '临时 ' + r.addr : 'Addr ' + r.addr); }
+  if (r && r.chipid) $('kvChip').textContent = cidHex(r.chipid);
+  /* 版本始终由本页重新查询 M602，不信任 URL 旧值 */
+  if (addr0 >= 0) loadBoard().catch(() => {});
+  pollStatus();
+  setInterval(pollStatus, 2000);
+}
+
+/* 读取板上固件版本(异步触发, 优先 chipid: 地址可改/临时飞达 addr=99 也能查):
+ * 后端只启动 M602 查询即返回, 结果由 2s 轮询 status 的 board_fw 带回
+ * (不能在请求里同步等: 后端应答处理在 main loop, 阻塞即饿死; 旧版同步查询在超时后
+ *  应答晚到写悬空引用导致 ESP32 LoadProhibited 崩溃) */
+async function loadBoard(){
+  if (!chipQ && addr0 < 0) { $('kvBoard').textContent = '-'; return; }
+  $('kvBoard').textContent = '读取中…';
+  const q = chipQ ? ('?chipid=' + chipQ) : ('?addr=' + addr0);
+  const r = await api('/api/feeder/up/board' + q).catch(() => null);
+  if (!r || !r.ok) $('kvBoard').textContent = (r && r.msg) ? r.msg : t('fup.state.error');
+  else setTimeout(() => { if ($('kvBoard').textContent === '读取中…') $('kvBoard').textContent = 'BL/未应答'; }, 2500);
+  /* ok: 查询已触发, 轮询带回 */
+}
+
+function setSrc(s){
+  src = s;
+  $('tabLocal').classList.toggle('on', s === 'local');
+  $('tabGh').classList.toggle('on', s === 'github');
+  $('pnLocal').style.display = s === 'local' ? '' : 'none';
+  $('pnGh').style.display = s === 'github' ? '' : 'none';
+  $('goBtn').textContent = s === 'github' ? 'GitHub 升级' : t('fup.go');
+}
+
+/* 本地上传 hex 并校验：现场 POST body/multipart 会丢(上传显示"空文件")，
+ * 改为 1.2KB/片放 X-Chunk 请求头，服务端逐片拼接，最后一片解析 DDFW/校验和。 */
+async function uploadHex(){
+  const f = $('hexFile').files[0];
+  if (!f) { toast(t('fup.pickHex'), true); return; }
+  if (!await ensureUnlock()) { toast(t('unlock.need'), true); return; }
+  let text = '';
+  try { text = await f.text(); } catch (e) { text = ''; }
+  const hex = String(text || '').replace(/^\uFEFF/, '').replace(/\s+/g, '');   // 去 BOM/空白; Intel HEX 记录以:开头
+  if (hex.length < 10) { toast('文件无效', true); return; }
+  const CH = 1200;
+  const total = Math.ceil(hex.length / CH);
+  $('upStat').className = 'stat';
+  $('upStat').textContent = '校验中… 0/' + total;
+  let last = null;
+  try {
+    for (let i = 0; i < total; i++) {
+      const chunk = hex.slice(i * CH, (i + 1) * CH);
+      const r = await api('/api/feeder/up/chunk', { method: 'POST', timeout: 15000, headers: {
+        'X-Upload-Seq': String(i),
+        'X-Upload-Last': (i === total - 1 ? '1' : '0'),
+        'X-Chunk': chunk
+      }});
+      if (!r || !r.ok) {
+        pkgReady = false;
+        $('upStat').className = 'stat err';
+        $('upStat').textContent = (r && r.msg) ? r.msg : '校验失败';
+        return;
+      }
+      last = r;
+      $('upStat').textContent = '校验中… ' + (i + 1) + '/' + total;
+    }
+  } catch (e) {
+    pkgReady = false;
+    $('upStat').className = 'stat err';
+    $('upStat').textContent = (e && e.message) ? e.message : '校验失败';
+    return;
+  }
+  if (last && last.ok) {
+    pkgVer = last.ver; pkgReady = true;
+    $('kvPkg').textContent = last.ver;
+    $('upStat').className = 'stat ok';
+    $('upStat').textContent = t('fup.upload') + ' ✓ ' + last.ver;
+    toast(last.msg || 'OK');
+  }
+}
+
+/* 检查 GitHub 最新 release（feeder.hex 资产） */
+async function checkGithub(){
+  $('ghCheckBtn').disabled = true;
+  $('ghStat').textContent = '…';
+  const r = await api('/api/feeder/up/github').catch(e => ({ ok:false, msg:e.message }));
+  $('ghCheckBtn').disabled = false;
+  if (r.ok && r.device_url) {
+    ghUrl = r.device_url;
+    $('ghAsset').textContent = 'feeder.hex';
+    $('ghStat').className = 'stat ok';
+    $('ghStat').textContent = '可用';
+    $('kvPkg').textContent = 'GitHub release';
+    // 尝试显示远程版本（下载后才知道，这里提示）
+    $('ghVer').textContent = '下载时校验';
+    toast('发现 GitHub 固件');
+  } else {
+    ghUrl = '';
+    $('ghStat').className = 'stat err';
+    $('ghStat').textContent = (r && r.msg) ? r.msg : '未发现固件资产';
+  }
+}
+
+/* 发起升级 */
+async function startUp(){
+  if (busy) { toast('升级进行中', true); return; }
+  if (!chipQ && addr0 < 0) { toast('缺少地址', true); return; }   // 有 chipid 时由后端查当前地址
+  if (src === 'github' && !ghUrl) { await checkGithub(); if (!ghUrl) return; }
+  if (src === 'local' && !pkgReady) { toast('请先上传并校验固件包', true); return; }
+  if (!await ensureUnlock()) { toast(t('unlock.need'), true); return; }
+  const force = $('forceDowngrade').checked ? 1 : 0;
+  $('goBtn').disabled = true;
+  /* 升级按 chipid 定位(地址可改/临时飞达 addr=99): chipid 优先, addr 仅作后端查不到时的兜底 */
+  const body = { force, src };
+  if (addr0 >= 0) body.addr = addr0;
+  if (chipQ) body.chipid = chipQ;
+  const r = await api('/api/feeder/up/start', { method: 'POST', body })
+    .catch(e => ({ ok:false, msg:e.message }));
+  if (!r.ok) { toast(r.msg || '启动失败', true); $('goBtn').disabled = false; return; }
+  busy = true;
+  logLast = '';                                // 新任务: 清空已显示日志标记
+  const lb = $('upLog'); if (lb) lb.textContent = '';
+  toast('升级已启动');
+  pollStatus();
+}
+
+/* 轮询升级状态(每 2s; 非升级时同时带回板上版本异步查询结果) */
+async function pollStatus(){
+  const r = await api('/api/feeder/up/status').catch(() => null);
+  if (!r) return;
+  /* 升级日志必须先刷新: 旧代码放在函数末尾, busy=false 或 done/error 时提前 return,
+   * 导致"准备升级/失败原因"等最后几条日志永远不显示。 */
+  showLog(r);
+  /* 板上版本异步查询结果 */
+  if (r.board_busy) $('kvBoard').textContent = '读取中…';
+  else if (r.board_done && r.board_fw) $('kvBoard').textContent = r.board_fw;
+  else if (r.board_done) $('kvBoard').textContent = t('fup.state.error');
+  /* ????? busy=false ???????? */
+  if (r.board_ver) $('kvBoard').textContent = r.board_ver;
+  if (!busy) return;
+  if (r.busy === false && r.state === 'done') {
+    busy = false; $('goBtn').disabled = false;
+    $('upBar').style.width = '100%';
+    $('upPct').textContent = '100%';
+    $('upState').textContent = t('fup.state.done');
+    $('upStat2').className = 'stat ok';
+    $('upStat2').textContent = r.msg || '升级成功';
+    $('kvBoard').textContent = r.board_ver || $('kvBoard').textContent;
+    if (r.pkg_ver) $('kvPkg').textContent = r.pkg_ver;
+    toast(r.msg || '升级成功');
+    return;
+  }
+  if (r.busy === false && r.state === 'error') {
+    busy = false; $('goBtn').disabled = false;
+    $('upState').textContent = t('fup.state.error');
+    $('upStat2').className = 'stat err';
+    $('upStat2').textContent = r.msg || '升级失败';
+    toast(r.msg || '升级失败', true);
+    return;
+  }
+  $('upBar').style.width = (r.progress || 0) + '%';
+  $('upPct').textContent = (r.progress || 0) + '%';
+  $('upState').textContent = r.state ? (t('fup.state.' + r.state) || r.state) : '';
+  $('upStat2').className = 'stat';
+  $('upStat2').textContent = r.msg || '';
+  if (r.pkg_ver) $('kvPkg').textContent = r.pkg_ver;
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

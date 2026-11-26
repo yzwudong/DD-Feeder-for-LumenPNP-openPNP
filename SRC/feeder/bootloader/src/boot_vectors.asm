@@ -1,0 +1,72 @@
+; Production Bootloader 向量表（SDCC/ASxxxx）
+; Boot C 代码链接到 0x0100；本文件占 0x0000-0x00FF。
+; App 链接到 0x1800，中断向量入口为 0x1803/0x180B/...
+        .area CSEG (ABS)
+
+        .org 0x0000
+        ljmp    __sdcc_gsinit_startup
+
+        .org 0x0003
+        ljmp    0x1803
+        .org 0x000B
+        ljmp    0x180B
+        .org 0x0013
+        ljmp    0x1813
+        .org 0x001B
+        ljmp    0x181B
+        .org 0x0023
+        ljmp    0x1823
+        .org 0x002B
+        ljmp    0x182B
+        .org 0x0033
+        ljmp    0x1833
+        .org 0x003B
+        ljmp    0x183B
+        .org 0x0043
+        ljmp    0x1843
+        .org 0x004B
+        ljmp    0x184B
+        .org 0x0053
+        ljmp    0x1853
+        .org 0x005B
+        ljmp    0x185B
+        .org 0x0063
+        ljmp    0x1863
+        .org 0x006B
+        ljmp    0x186B
+        .org 0x0073
+        ljmp    0x1873
+        .org 0x007B
+        ljmp    0x187B
+        .org 0x0083
+        ljmp    0x1883
+        .org 0x008B
+        ljmp    0x188B
+        .org 0x0093
+        ljmp    0x1893
+        .org 0x009B
+        ljmp    0x189B
+        .org 0x00A3
+        ljmp    0x18A3
+        .org 0x00AB
+        ljmp    0x18AB
+        .org 0x00B3
+        ljmp    0x18B3
+        .org 0x00BB
+        ljmp    0x18BB
+        .org 0x00C3
+        ljmp    0x18C3
+        .org 0x00CB
+        ljmp    0x18CB
+        .org 0x00D3
+        ljmp    0x18D3
+        .org 0x00DB
+        ljmp    0x18DB
+        .org 0x00E3
+        ljmp    0x18E3
+        .org 0x00EB
+        ljmp    0x18EB
+        .org 0x00F3
+        ljmp    0x18F3
+        .org 0x00FB
+        ljmp    0x18FB

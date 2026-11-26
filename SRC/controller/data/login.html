@@ -1,0 +1,473 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>SMT Feeder - Login</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .ip{font-size:12px;color:var(--mut);font-family:ui-monospace,Consolas,monospace;margin-left:4px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮（移动端 ≥44px 触控目标） */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.ok{background:var(--ok);color:#052e16;border-color:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 面板 / 卡片 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:420px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:default;transition:.15s}
+.card:hover{border-color:var(--acc);transform:translateY(-2px)}
+.card.offline{opacity:.38;filter:grayscale(70%)}   /* 无飞达(未安装): 灰化 */
+.card.enabled{border-color:var(--ok)}              /* 使能: 绿边 */
+.card.disabled{border-color:#b45309;opacity:.6}    /* 禁用: 暗橙边 + 半透明 */
+.warnbar{background:#3b1d1d;border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.6}
+.card .pos{font-weight:700;font-size:13px}
+.card .addr{font-size:13px;font-weight:700;color:var(--txt)}
+.card .cid{font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .ver{font-size:10px;color:var(--mut)}
+.st{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;margin-top:6px}
+.st.online{background:#052e16;color:var(--ok)}
+.st.offline{background:#1e293b;color:var(--mut)}
+.st.enabled{background:#052e16;color:var(--ok)}    /* 使能: 绿 */
+.st.disabled{background:#3b2a17;color:#e0a04a}     /* 禁用: 橙 */
+
+/* 使能 toggle 开关 */
+.ctlTxt{font-size:13px;color:var(--mut)}
+.switch{position:relative;display:inline-block;width:44px;height:24px;vertical-align:middle}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#475569;border-radius:24px;cursor:pointer;transition:.2s}
+.switch .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--ok)}
+.switch input:checked + .slider:before{transform:translateX(20px)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--off)}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+/* 表单 */
+.field{margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.field label{color:var(--mut);font-size:13px}
+.field input{background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+             padding:12px 14px;font-size:16px;min-height:44px;width:100%}
+input:focus{outline:none;border-color:var(--acc)}
+
+/* WiFi 列表 */
+.wlist{display:flex;flex-direction:column;gap:8px}
+.witem{display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);
+       border-radius:10px;padding:10px 12px;cursor:pointer;min-height:48px}
+.witem.sel{border-color:var(--acc)}
+.witem .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.witem .sig{color:var(--mut);font-size:12px;min-width:70px;text-align:right}
+
+/* 键值 */
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:12px 0}
+.kv b{color:var(--mut);font-weight:400}
+.kv.lg{grid-template-columns:130px 1fr}
+
+/* 进度条 */
+.pbar{height:14px;background:#0f172a;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:10px 0}
+.pbar>div{height:100%;width:0;background:linear-gradient(90deg,#0ea5e9,#38bdf8);transition:width .3s}
+.pinfo{font-size:12px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* 控制网格（单飞达页） */
+.ctl{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:700px){.ctl{grid-template-columns:repeat(4,1fr)}}
+
+/* 一行两卡(状态+控制等); 窄屏自动堆叠 */
+.row2{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.row2 .row{flex:1 1 340px;margin-bottom:0}
+/* 控制卡内容纵向排列 */
+.ctl.col{display:flex;flex-direction:column;gap:10px}
+.ctlrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* 登录 */
+.login-wrap{min-height:calc(100vh - 24px);display:flex;align-items:center;justify-content:center;padding:16px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;width:min(400px,100%)}
+.login-card h1{font-size:18px;margin-bottom:16px;text-align:center}
+
+/* 日志 */
+.log{background:#020617;border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-height:160px;
+     overflow:auto;font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--mut);margin-top:10px}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+
+/* 安全解锁条 */
+.unlockbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px;flex-wrap:wrap}
+.unlockbar.locked{background:rgba(239,68,68,.10);border:1px solid var(--err);color:#f87171}
+.unlockbar.unlocked{background:rgba(34,197,94,.10);border:1px solid var(--ok);color:#4ade80}
+.unlockbar .sttxt{flex:1;min-width:120px}
+.btn.warn{background:#f59e0b;color:#fff}
+
+/* 确认弹窗 */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 实时日志 */
+.logpanel{background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:10px;height:58vh;overflow-y:auto;
+          font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.7}
+.lrow{display:flex;gap:10px;padding:2px 6px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.lrow:nth-child(odd){background:rgba(255,255,255,.025)}
+.lrow .lt{color:#64748b;flex:none}
+.lrow .ld{flex:none;font-weight:600}
+.lrow.tx .ld{color:#f59e0b}
+.lrow.rx .ld{color:#38bdf8}
+.lrow .ldata{color:#e2e8f0}
+
+/* 开关 */
+.switch{position:relative;display:inline-block;width:50px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--line);border-radius:28px;transition:.2s;cursor:pointer}
+.slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--acc)}
+.switch input:checked+.slider:before{transform:translateX(22px)}
+.authline{display:flex;align-items:center;gap:12px;justify-content:center;margin:0 0 8px;color:var(--mut);font-size:13px}
+.rad{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+#loginBox input[type=text]{margin-bottom:0}
+.card.auth-card input{width:100%;margin-bottom:10px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#0f172a;color:var(--tx);font-size:15px;box-sizing:border-box}
+.ah3{margin:0 0 6px;font-size:16px}
+.lbl2{display:block;margin:10px 0 4px;font-size:12px;color:var(--mut)}
+.btnrow{display:flex;gap:10px;margin-top:10px}
+.btnrow .btn{flex:1}
+.btn.block{width:100%}
+.hr{height:1px;background:var(--line);margin:14px 0}
+
+</style>
+</head>
+<body class="center-page">
+<header class="top">
+  <h1>SMT Feeder <span class="ip" title="当前 IP"><!--IP--></span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" class="on" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  </nav>
+</header>
+
+<div class="card auth-card">
+  <h1 class="brand title">SMT Feeder</h1>
+
+  <!-- 登录开关 -->
+  <div class="authline">
+    <label class="switch" title="skip login">
+      <input type="checkbox" id="authSw" onchange="toggleAuth()">
+      <span class="slider"></span>
+    </label>
+    <span id="authTxt">-</span>
+  </div>
+
+  <!-- 登录验证开启：用户名 + 密码 + 时效 -->
+  <div id="loginBox">
+    <input type="text" id="user" placeholder="admin" autocomplete="username">
+    <input type="password" id="pw" placeholder="password" autocomplete="current-password">
+    <div class="authline">
+      <label class="rad"><input type="radio" name="keep" value="0"><span data-i18n="login.keep20">20 分钟失效</span></label>
+      <label class="rad"><input type="radio" name="keep" value="1" checked><span data-i18n="login.keepForever">永久登录</span></label>
+    </div>
+    <p class="hint" id="hint"></p>
+    <button class="btn primary" onclick="doLogin()"></button>
+  </div>
+
+  <!-- 登录验证关闭：直接进入 -->
+  <div id="enterBox" style="display:none">
+    <button class="btn primary" onclick="location.href='/'"></button>
+  </div>
+
+  <!-- 账号管理(管理员已登录时显示) -->
+  <div id="adminBox" style="display:none;text-align:left;border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
+    <h3 class="ah3" data-i18n="login.adminTitle">账号与权限</h3>
+    <p class="hint" data-i18n="login.adminHint">管理员用户名固定 admin；操作员账号仅可浏览/查询（写操作后端强制拒绝）。</p>
+
+    <label class="lbl2" data-i18n="login.adminPwOld">旧管理密码</label>
+    <input type="password" id="pwOld" autocomplete="off">
+    <label class="lbl2" data-i18n="login.adminPwNew">新管理密码（≥4 位）</label>
+    <input type="password" id="pwNew" autocomplete="off">
+    <button class="btn primary block" onclick="saveAdminPw()" data-i18n="login.adminPwBtn">修改管理密码</button>
+
+    <div class="hr"></div>
+    <label class="lbl2" data-i18n="login.opUserL">操作员用户名</label>
+    <input type="text" id="opUser" autocomplete="off">
+    <label class="lbl2" data-i18n="login.opPassL">操作员密码（≥4 位，留空并点"清除"即删除账号）</label>
+    <input type="password" id="opPass" autocomplete="off">
+    <div class="btnrow">
+      <button class="btn primary" onclick="saveOperator(true)" data-i18n="login.opBtn">保存操作员</button>
+      <button class="btn danger" onclick="saveOperator(false)" data-i18n="login.opClear">清除操作员</button>
+    </div>
+
+    <div class="hr"></div>
+    <h3 class="ah3" data-i18n="login.factoryTitle">恢复出厂设置</h3>
+    <p class="hint" data-i18n="login.factoryHint">清空 WiFi / 账号密码 / 所有设置并重启，设备回到出厂默认（AP 热点 + 默认管理密码 123456）。此操作不可逆！</p>
+    <label class="lbl2" data-i18n="login.factoryPw">输入当前管理密码确认</label>
+    <input type="password" id="pwFactory" autocomplete="off">
+    <button class="btn danger block" onclick="factoryReset()" data-w data-i18n="login.factoryBtn">恢复出厂设置</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script>
+/* 延迟加载 app.js: 不在 HTML 源码中写 <script src> -> preload scanner 不会提前并发下载;
+   DOMContentLoaded 后才动态加载, 全程单请求, 避免 ESP32 单线程 WebServer 并发 reset */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+  $('pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  $('user').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  loadAuth();
+  checkAdmin();
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，登录页也独立可用(不报错、按钮有字) */
+window.$ = window.$ || (id => document.getElementById(id));
+window.toast = window.toast || ((msg, isErr) => {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+});
+window.t = window.t || ((k) => ({
+  'app.title':'SMT 飞达控制器',
+  'nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.login':'登录设置','nav.logout':'退出',
+  'login.authOn':'登录验证已开启','login.authOff':'登录验证已关闭',
+  'login.hint':'输入账号密码登录（管理员 admin，操作员账号由管理员设置）','login.btn':'登录','login.enter':'进入总览',
+  'login.user':'用户名','login.keep20':'20 分钟失效','login.keepForever':'永久登录',
+  'login.toggleErr':'设置失败','login.err':'用户名或密码错误',
+  'login.adminTitle':'账号与权限','login.adminHint':'管理员用户名固定 admin；操作员账号仅可浏览/查询（写操作后端强制拒绝）。',
+  'login.adminPwOld':'旧管理密码','login.adminPwNew':'新管理密码（≥4 位）','login.adminPwBtn':'修改管理密码',
+  'login.opUserL':'操作员用户名','login.opPassL':'操作员密码（≥4 位，留空并点"清除"即删除账号）',
+  'login.opBtn':'保存操作员','login.opClear':'清除操作员',
+  'login.saveOk':'已保存','login.saveErr':'保存失败','login.adminPwErr':'旧密码错误或新密码太短(≥4位)',
+  'login.factoryTitle':'恢复出厂设置','login.factoryHint':'清空 WiFi / 账号密码 / 所有设置并重启，设备回到出厂默认（AP 热点 + 默认管理密码 123456）。此操作不可逆！',
+  'login.factoryPw':'输入当前管理密码确认','login.factoryBtn':'恢复出厂设置',
+  'login.factoryConfirm':'确定恢复出厂？所有设置（WiFi/密码/配置/事件日志）将被清空，设备将重启！',
+  'login.factoryDone':'已恢复出厂，设备即将重启…','login.factoryErr':'密码错误或操作失败'
+}[k] || k));
+
+let authOn = true;
+
+function renderAuth() {
+  $('authSw').checked = authOn;
+  $('authTxt').textContent = t(authOn ? 'login.authOn' : 'login.authOff');
+  $('loginBox').style.display = authOn ? 'block' : 'none';
+  $('enterBox').style.display = authOn ? 'none' : 'block';
+  if (!authOn) $('adminBox').style.display = 'none';   /* 关闭登录验证后隐藏账号设置 */
+
+  $('hint').textContent = t('login.hint');
+  $('loginBox').querySelector('button').textContent = t('login.btn');
+  $('enterBox').querySelector('button').textContent = t('login.enter');
+  document.title = 'SMT Feeder' + (authOn ? ' - Login' : '');
+}
+
+async function loadAuth() {
+  try {
+    const r = await fetch('/api/auth/status');
+    const d = await r.json();
+    authOn = !!d.auth;
+  } catch (e) {}
+  renderAuth();
+}
+
+async function toggleAuth() {
+  const en = $('authSw').checked;
+  const sw = $('authSw');
+  sw.disabled = true;
+  let adminPw = '';
+  if (!en && authOn) {
+    adminPw = prompt('关闭登录验证需要管理员密码（默认 123456）') || '';
+    if (!adminPw) { sw.checked = true; sw.disabled = false; return; }
+  }
+  try {
+    /* 只走 X-enabled/X-Admin-Pass，避免 ESP32 等 body 5s */
+    const r = await fetch('/api/auth/enable', {
+      method: 'POST',
+      headers: {'X-Auth-Token': localStorage.getItem('token') || '',
+                'X-enabled': en ? '1' : '0',
+                'X-Admin-Pass': adminPw}
+    });
+    const d = await r.json();
+    if (!d.ok) throw 0;
+    authOn = en;
+    renderAuth();
+    if (!en) location.href = '/';      // 关闭验证 -> 直接进总览
+  } catch (e) {
+    toast(t('login.toggleErr'), true);
+    $('authSw').checked = !en;
+  } finally {
+    sw.disabled = false;
+  }
+}
+
+async function doLogin() {
+  const user = $('user').value.trim();
+  const pw = $('pw').value;
+  const keep = document.querySelector('input[name=keep]:checked')?.value === '1';
+  if (!user || !pw) return;
+  let d = null;
+  try {
+    /* 只走请求头/query，避免 ESP32 WebServer 等 body 5s */
+    const r = await fetch('/api/login?keep=' + (keep ? '1' : '0'), {
+      method: 'POST',
+      headers: {'X-User': user, 'X-Admin-Pass': pw}
+    });
+    d = await r.json();
+  } catch (e) { toast(t('login.err'), true); return; }
+  if (!(d && d.ok && d.token)) { toast(t('login.err'), true); return; }
+  /* localStorage 各写入独立 try: 无痕/隐私模式 setItem 抛异常不得阻断跳转 */
+  try { localStorage.setItem('token', d.token); } catch (e) {}
+  try { localStorage.setItem('role', d.role); } catch (e) {}
+  try { localStorage.setItem('keep', keep ? '1' : '0'); } catch (e) {}
+  location.href = '/index.html?token=' + d.token;   // 跳转必执行, token 走 URL(cookie/localStorage 均不可靠)
+}
+
+/* 管理员已登录(仅当 URL 显式带 token 的有效会话整页访问): 显示账号管理区并预填操作员用户名;
+ * localStorage 残留旧 token 一律不探测不显示 -> 无 403 红叉, 未登录只显示登录框 */
+async function checkAdmin() {
+  const tok = new URLSearchParams(location.search).get('token') || localStorage.getItem('token');
+  if (!tok) return;                                    // 无 token -> 不探测
+  try {
+    const r = await fetch('/api/creds/status', { headers: { 'X-Auth-Token': tok } });
+    if (r.status !== 200) return;                      // 403/401 -> token 无效或非 admin -> 不显示
+    const d = await r.json();
+    if (d && d.ok) {
+      $('adminBox').style.display = 'block';
+      if (d.opUser) $('opUser').value = d.opUser;
+    }
+  } catch (e) {}
+}
+
+async function _adminApi(path, body) {
+  const headers = { 'X-Auth-Token': localStorage.getItem('token') || '' };
+  /* ESP32 WebServer 读 JSON body 会白等 5s，字段全部走 X-<key> 头 */
+  for (const k of Object.keys(body || {})) headers['X-' + k] = String(body[k]);
+  const r = await fetch(path, { method: 'POST', headers });
+  return r.json();
+}
+
+async function saveAdminPw() {
+  const oldPw = $('pwOld').value, fresh = $('pwNew').value;
+  if (!oldPw || !fresh) return;
+  const d = await _adminApi('/api/creds/adminpw', { old: oldPw, fresh });
+  if (d.ok) { toast(t('login.saveOk')); $('pwOld').value = ''; $('pwNew').value = ''; }
+  else toast(d.msg === 'old password wrong or too short(>=4)' ? t('login.adminPwErr') : t('login.saveErr'), true);
+}
+
+async function saveOperator(keep) {
+  const user = keep ? $('opUser').value.trim() : '';
+  const pass = keep ? $('opPass').value : '';
+  const d = await _adminApi('/api/creds/operator', { user, pass });
+  if (d.ok) {
+    toast(t('login.saveOk'));
+    $('opPass').value = '';
+    if (!keep) { $('opUser').value = ''; }   /* 清除操作员后输入框同步清空 */
+  } else toast(t('login.saveErr'), true);
+}
+
+/* 恢复出厂: 需先解锁操作(后端 /api/factory/reset 要求 _needUnlock), 再校验管理密码;
+ * 之前不先解锁 -> 403 locked 被当成"密码错误", 用户误以为密码错。成功后清本地会话并跳转(设备即将重启) */
+async function factoryReset() {
+  const pw = $('pwFactory').value;
+  if (!pw) return;
+  if (!confirm(t('login.factoryConfirm'))) return;
+  if (!(await ensureUnlock())) { toast(t('unlock.need'), true); return; }   // 解锁前置
+  const d = await _adminApi('/api/factory/reset', { password: pw });
+  if (d.ok) {
+    toast(t('login.factoryDone'));
+    localStorage.clear();
+    setTimeout(() => { location.href = '/'; }, 1500);
+  } else toast(t('login.factoryErr'), true);
+}
+
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1126 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Feeder - SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮（移动端 ≥44px 触控目标） */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.ok{background:var(--ok);color:#052e16;border-color:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 面板 / 卡片 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:420px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;transition:.15s}
+.card:hover{border-color:var(--acc);transform:translateY(-2px)}
+.card.offline{opacity:.38;filter:grayscale(70%)}   /* 无飞达(未安装): 灰化 */
+.card.enabled{border-color:var(--ok)}              /* 使能: 绿边 */
+.card.disabled{border-color:#b45309;opacity:.6}    /* 禁用: 暗橙边 + 半透明 */
+.warnbar{background:#3b1d1d;border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.6}
+.card .pos{font-weight:700;font-size:13px}
+.card .addr{font-size:13px;font-weight:700;color:var(--txt)}
+.card .cid{font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .ver{font-size:10px;color:var(--mut)}
+.st{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;margin-top:6px}
+.st.online{background:#052e16;color:var(--ok)}
+.st.offline{background:#1e293b;color:var(--mut)}
+.st.enabled{background:#052e16;color:var(--ok)}    /* 使能: 绿 */
+.st.disabled{background:#3b2a17;color:#e0a04a}     /* 禁用: 橙 */
+
+/* 使能 toggle 开关 */
+.ctlTxt{font-size:13px;color:var(--mut)}
+.switch{position:relative;display:inline-block;width:44px;height:24px;vertical-align:middle}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#475569;border-radius:24px;cursor:pointer;transition:.2s}
+.switch .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--ok)}
+.switch input:checked + .slider:before{transform:translateX(20px)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--off)}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+/* 表单 */
+.field{margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.field label{color:var(--mut);font-size:13px}
+.field input{background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+             padding:12px 14px;font-size:16px;min-height:44px;width:100%}
+input:focus{outline:none;border-color:var(--acc)}
+
+/* WiFi 列表 */
+.wlist{display:flex;flex-direction:column;gap:8px}
+.witem{display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);
+       border-radius:10px;padding:10px 12px;cursor:pointer;min-height:48px}
+.witem.sel{border-color:var(--acc)}
+.witem .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.witem .sig{color:var(--mut);font-size:12px;min-width:70px;text-align:right}
+
+/* 键值 */
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:12px 0}
+.kv b{color:var(--mut);font-weight:400}
+.kv.lg{grid-template-columns:130px 1fr}
+
+/* 进度条 */
+.pbar{height:14px;background:#0f172a;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:10px 0}
+.pbar>div{height:100%;width:0;background:linear-gradient(90deg,#0ea5e9,#38bdf8);transition:width .3s}
+.pinfo{font-size:12px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* 控制网格（单飞达页） */
+.ctl{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:700px){.ctl{grid-template-columns:repeat(4,1fr)}}
+
+/* 一行两卡(状态+控制等); 窄屏自动堆叠 */
+.row2{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.row2 .row{flex:1 1 340px;margin-bottom:0}
+/* 控制卡内容纵向排列 */
+.ctl.col{display:flex;flex-direction:column;gap:10px}
+.ctlrow{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ctlrow select,.ctlrow input[type=number]{background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+        padding:8px 10px;font-size:14px;min-height:40px;min-width:64px}
+.ctlrow .inl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ctlrow .lbl{color:var(--mut);font-size:12px}
+/* 送料小卡片: 内容靠左，不与整行两端对齐 */
+.feedrow{justify-content:flex-start;background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.subcard{background:#0f172a;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.subhead{font-size:12px;color:var(--mut);margin-bottom:8px}
+.subcard .feedrow{background:none;border:0;padding:0}
+.subcard .ctlrow{justify-content:flex-start}
+.anglerow{justify-content:flex-start}
+
+/* M620 配置网格: 桌面 4 列, 手机 2 列 */
+.cfgGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:900px){.cfgGrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.cfgGrid{grid-template-columns:1fr}}
+.hint{color:var(--mut);font-size:12px;margin:6px 0}
+.badge{display:inline-block;font-size:11px;line-height:1.6;padding:1px 7px;border-radius:999px;vertical-align:middle}
+.badge.test{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.5);color:#fbbf24}
+
+/* 校准进度 */
+.pinfo{font-size:12px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pbar{height:14px;background:#0f172a;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:10px 0}
+.pbar>div{height:100%;width:0;background:linear-gradient(90deg,#0ea5e9,#38bdf8);transition:width .3s}
+
+/* 登录 */
+.login-wrap{min-height:calc(100vh - 24px);display:flex;align-items:center;justify-content:center;padding:16px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;width:min(400px,100%)}
+.login-card h1{font-size:18px;margin-bottom:16px;text-align:center}
+
+/* 日志 */
+.log{background:#020617;border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-height:160px;
+     overflow:auto;font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--mut);margin-top:10px}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+
+/* 安全解锁条 */
+.unlockbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px;flex-wrap:wrap}
+.unlockbar.locked{background:rgba(239,68,68,.10);border:1px solid var(--err);color:#f87171}
+.unlockbar.unlocked{background:rgba(34,197,94,.10);border:1px solid var(--ok);color:#4ade80}
+.unlockbar .sttxt{flex:1;min-width:120px}
+.btn.warn{background:#f59e0b;color:#fff}
+
+/* 确认弹窗 */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 实时日志 */
+.logpanel{background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:10px;height:58vh;overflow-y:auto;
+          font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.7}
+.lrow{display:flex;gap:10px;padding:2px 6px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.lrow:nth-child(odd){background:rgba(255,255,255,.025)}
+.lrow .lt{color:#64748b;flex:none}
+.lrow .ld{flex:none;font-weight:600}
+.lrow.tx .ld{color:#f59e0b}
+.lrow.rx .ld{color:#38bdf8}
+.lrow .ldata{color:#e2e8f0}
+
+/* 开关 */
+.switch{position:relative;display:inline-block;width:50px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--line);border-radius:28px;transition:.2s;cursor:pointer}
+.slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--acc)}
+.switch input:checked+.slider:before{transform:translateX(22px)}
+.authline{display:flex;align-items:center;gap:12px;justify-content:center;margin:0 0 8px;color:var(--mut);font-size:13px}
+
+.rolebar{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;font-size:12px;background:#14532d;color:#bbf7d0}.rolebar.rolegray{background:#3f3f46;color:#a1a1aa}.hidden{display:none !important}</style>
+</head>
+<body>
+<header class="top">
+  <h1><span data-i18n="feeder.title">飞达控制</span> <span id="titlePos"></span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="feeder.back">返回总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  <span class="rolebar" id="roleBar" style="display:none"></span></nav>
+</header>
+
+<!-- 安全解锁条(恢复上一版位置: 顶栏下方; 点按钮弹出确认对话框) -->
+<div class="unlockbar locked" id="unlockBar">
+  <span class="sttxt" id="unlockOn" style="display:none"></span>
+  <span class="sttxt" id="unlockOff"></span>
+  <button class="btn sm warn" id="unlockBtn" onclick="toggleUnlock()"></button>
+</div>
+
+<!-- 状态 + 控制: 一行两卡(窄屏自动堆叠) -->
+<div class="row2">
+  <div class="row">
+    <h2 data-i18n="feeder.state">状态</h2>
+    <div class="kv lg" id="kv"></div>
+  </div>
+  <div class="row">
+    <h2 data-i18n="feeder.title">控制</h2>
+    <div class="ctl col">
+      <div class="ctlrow">
+        <span class="ctlTxt" data-i18n="feeder.enable">使能/禁用</span>
+        <button class="btn" id="enableBtn" data-w onclick="toggleEnable()" data-i18n="feeder.disable">禁用飞达</button>
+      </div>
+
+      <div class="subcard">
+        <div class="subhead" data-i18n="feeder.feedTitle">送料</div>
+        <div class="ctlrow feedrow">
+          <span class="inl">
+            <span class="lbl" data-i18n="feeder.feed">送料(mm)</span>
+            <select id="feedLen">
+              <option value="2">2</option>
+              <option value="4" selected>4</option>
+              <option value="8">8</option>
+              <option value="12">12</option>
+              <option value="16">16</option>
+              <option value="20">20</option>
+              <option value="24">24</option>
+            </select>
+          </span>
+          <span class="inl">
+            <span class="lbl" data-i18n="feeder.repeatX">重复</span>
+            <input type="number" id="feedRepeat" value="1" min="1" max="999">
+            <button class="btn acc" id="feedGoBtn" onclick="cmdFeed()" data-w data-i18n="feeder.feedGo">送料</button>
+            <span class="hint" id="feedProgress"></span>
+            <button class="btn warn sm" id="feedStopBtn" style="display:none" onclick="stopFeed()" data-i18n="feeder.feedStop">停止</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="subcard">
+        <div class="subhead" data-i18n="feeder.servoTitle">舵机</div>
+        <div class="ctlrow anglerow">
+          <span class="inl">
+            <span class="lbl" data-i18n="feeder.angle">角度(°)</span>
+            <input type="number" id="servoAngle" value="90" min="0" max="180" step="1">
+            <button class="btn sm" type="button" onclick="fillAngle(0)">0°</button>
+            <button class="btn sm" type="button" onclick="fillAngle(90)">90°</button>
+            <button class="btn" onclick="cmdAngle()" data-w data-i18n="feeder.setAngle">设置角度</button>
+            <button class="btn warn" onclick="cmdRetract()" data-w data-i18n="feeder.retract">回退推杆</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="ctlrow">
+        <button class="btn" onclick="clearFeed()" data-w data-i18n="feeder.clearFeed">清零计数</button>
+        <button class="btn" id="blinkBtn" onclick="blinkFeeder()" data-w data-i18n="feeder.blink">闪烁定位</button>
+      </div>
+      <div class="ctlrow">
+        <button class="btn acc" id="fupBtn" onclick="upgradeFeeder()" data-w data-i18n="feeder.up">升级固件</button>
+        <button class="btn danger" onclick="resetFeeder()" data-w data-i18n="feeder.reset">恢复出厂</button>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <h2 data-i18n="feeder.cfgM620">M620 参数配置</h2>
+  <div class="cfgGrid">
+    <div class="field"><label>地址(R 改址)</label><select id="cfgAddr"></select></div>
+    <div class="field"><label data-i18n="feeder.cfgA">A 全进料角度</label><input id="cfgA" type="number" value="90" min="0" max="180"></div>
+    <div class="field"><label data-i18n="feeder.cfgB">B 半进料角度</label><input id="cfgB" type="number" value="44" min="0" max="180"></div>
+    <div class="field"><label data-i18n="feeder.cfgC">C 回退角度</label><input id="cfgC" type="number" value="15" min="0" max="180"></div>
+    <div class="field"><label data-i18n="feeder.cfgF">F 进料长度(mm)</label>
+      <select id="cfgF">
+        <option value="2">2</option>
+        <option value="4" selected>4</option>
+        <option value="8">8</option>
+        <option value="12">12</option>
+        <option value="16">16</option>
+        <option value="20">20</option>
+        <option value="24">24</option>
+      </select>
+    </div>
+    <div class="field"><label data-i18n="feeder.cfgU">U 稳定时间</label><input id="cfgU" type="number" value="240" min="0" max="5000"></div>
+    <div class="field"><label data-i18n="feeder.cfgV">V 最小脉宽</label><input id="cfgV" type="number" value="550" min="0" max="5000"></div>
+    <div class="field"><label data-i18n="feeder.cfgW">W 最大脉宽</label><input id="cfgW" type="number" value="240" min="0" max="5000"></div>
+    <div class="field"><label data-i18n="feeder.cfgX">X 忽略反馈</label>
+      <select id="cfgX">
+        <option value="0" data-i18n="feeder.cfgX0">0·有反馈线</option>
+        <option value="1" data-i18n="feeder.cfgX1">1·无反馈线</option>
+      </select>
+    </div>
+    <div class="field"><label data-i18n="feeder.cfgTLabel">T N20超时(0~5000)</label><input id="cfgT" type="number" value="1000" min="0" max="5000"></div>
+    <div class="field"><label data-i18n="feeder.cfgChip">ChipID(可选)</label><input id="cfgChip" type="text" placeholder="112233"></div>
+  </div>
+  <p class="hint" data-i18n="feeder.cfgHint">仅对当前飞达生效；填 ChipID 强校验(N+P)</p>
+  <p class="hint" data-i18n="feeder.cfgTHint">T: N20 超时参数(0~5000)。T0=周期完成立即检查限位(不等待)；默认 1000。不同电机转速不同，超时可单独设置</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn sm" type="button" onclick="fetchCfg()" data-i18n="feeder.cfgGet">获取当前配置</button>
+    <button class="btn sm" type="button" onclick="fillDefaults()" data-w data-i18n="feeder.cfgDef">默认值</button>
+    <button class="btn acc" onclick="applyConfig()" data-w data-i18n="feeder.applyCfg">应用配置</button>
+  </div>
+</div>
+
+<!-- 舵机校准 + 485 实时日志: 调测功能并入详情页 -->
+<div class="warnbar" id="prodInfo" style="display:none"></div>
+
+<div class="row">
+  <h2><span data-i18n="feeder.calib">舵机校准</span> <span class="badge test" data-i18n="feeder.test">测试功能</span></h2>
+  <div class="warnbar" data-i18n="feeder.calibHint">开始前请先接入校准设备（0°/90° 限位开关或校准工装），并确认贴片机已停止、该飞达空闲。校准会反复转动舵机，递加逼近防过冲，成功后才写回 V/W。</div>
+  <button class="btn warn block" id="calibGoBtn" onclick="cmdCalib()" data-w data-i18n="feeder.calibGo">开始校准</button>
+  <div id="calibProg" style="display:none">
+    <div class="pinfo"><span id="calibState"></span><span id="calibPct"></span></div>
+    <div class="pbar"><div id="calibBar"></div></div>
+    <div class="warnbar" data-i18n="feeder.calibKeepOpen">校准进行中：请勿关闭或切换本页面，页面失联 20 秒后校准将自动中止（配置不会写回）。</div>
+  </div>
+</div>
+
+<div class="row">
+  <h2 data-i18n="feeder.log485">485 实时日志</h2>
+  <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:-4px">
+    <button class="btn sm" onclick="clearLog()" data-i18n="log.clear">清空</button>
+  </div>
+  <div class="logpanel" id="logPanel"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 延迟加载 app.js: 不在 HTML 源码中写 <script src> -> preload scanner 不会提前并发下载;
+   DOMContentLoaded 后才动态加载, 全程单请求, 避免 ESP32 单线程 WebServer 并发 reset */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+    updateUnlockBar();
+    (async () => {
+      try {
+        /* 首屏严格串行: ESP32 WebServer 单线程 + keep-alive 最多空等 5s,
+           并发请求按 5s 一跳排队, 队尾(/api/feeder、/api/unlock)超时。
+           全部 await 后同一时刻只有 1 个请求在飞。 */
+        await pollUnlock();            // 解锁状态
+        await pollLog();               // 485 实时日志
+        await pollCalib();             // 校准进行中恢复进度
+        await refresh();               // 读缓存参数(可能 -1 显示未知)
+        if (!isNaN(slot) || chipQ) {
+          const base = lastFeeder ? (lastFeeder.cfgSeq || 0) : -1;
+          await queryCfg();            // 真发 M602, 不再只读缓存
+          await refreshUntilCfg(6000, base); // 等"这次查询"的 cfgSeq 变化后回填
+        }
+      } catch (e) { console.warn('boot failed', e); }
+    })();
+    /* 轮询合并为单个 3s 定时器, tick 内串行(2s 太密, 降频减少连接占用) */
+    loadChipMap();
+    loadProdInfo();
+    setInterval(loadChipMap, 10000);
+    setInterval(loadProdInfo, 5000);
+    setInterval(async () => { await pollUnlock(); await pollLog(); }, 3000);
+    /* 未命名上报/短按使能不会主动推送到浏览器: 3s 回读一次详情，en 按钮跟实际状态。 */
+    setInterval(async () => { await refresh(); }, 3000);
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';   // v=33: 恢复顶部解锁条/cfgSeq 回读/F 下拉+R 改址/强制同版本
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，本页也独立可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.toast = window.toast || ((msg, isErr) => {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+});
+window.t = window.t || ((k) => ({
+  'app.title':'SMT 飞达控制器','feeder.title':'飞达控制','feeder.back':'返回总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.login':'登录设置','nav.logout':'退出',
+  'feeder.state':'状态','feeder.chipid':'ChipID','feeder.ver':'配置版本','feeder.unknown':'未知','feeder.feedCnt':'推料次数','feeder.clearFeed':'清零计数',
+  'feeder.fw':'固件版本','feeder.cfgT':'N20超时','feeder.cfgTHint':'T: N20 超时参数(0~5000)。T0=周期完成立即检查限位(不等待)；默认 1000。不同电机转速不同，超时可单独设置',
+  'feeder.cfgTLabel':'T N20超时(0~5000)','feeder.cfgT0':'0·立即检查限位','feeder.cfgTDef':'默认 1000',
+  'feeder.clearFeedConfirm':'确认清零当前飞达的推料计数？','feeder.cleared':'已清零',
+  'feeder.enable':'使能/禁用','feeder.disable':'禁用飞达','feeder.disabledFirst':'飞达已禁用，请先启用','feeder.enableBtn':'启用飞达','feeder.feed':'送料(mm)','feeder.feedGo':'送料','feeder.repeatX':'重复(次)',
+  'feeder.feedTitle':'送料','feeder.servoTitle':'舵机','feeder.angle':'舵机角度(°)','feeder.setAngle':'设置角度','feeder.retract':'回退推杆','feeder.angleSet':'角度已发送','feeder.retracted':'回退指令已发送',
+  'feeder.repeating':'送料中(第 {n}/{x} 次)','feeder.feedSent':'已发送 {n}/{x}','feeder.feedStop':'停止','feeder.feedStopped':'已停止送料','feeder.feedProdStop':'检测到生产模式，自动送料已停止','feeder.feedFull':'已推进到 FULL，取料后请点“回退推杆”(M601)','feeder.replyTimeout':'设备应答超时，已中断','feeder.replyErr':'设备应答错误，已中断','feeder.reset':'恢复出厂',
+  'st.enabled':'使能','st.disabled':'禁用','st.offline':'未安装','feeder.unknown':'未知',
+  'feeder.cfgM620':'M620 参数配置','feeder.cfgA':'A 全进料角度','feeder.cfgB':'B 半进料角度','feeder.cfgC':'C 回退角度',
+  'feeder.cfgF':'F 进料长度(mm)','feeder.cfgU':'U 稳定时间','feeder.cfgV':'V 最小脉宽','feeder.cfgW':'W 最大脉宽','feeder.cfgX':'X 忽略反馈',
+  'feeder.cfgX0':'0·有反馈线','feeder.cfgX1':'1·无反馈线(忽略)','feeder.cfgChip':'ChipID(可选)',
+  'feeder.cfgHint':'仅对当前飞达生效；填 ChipID 强校验(N+P)','feeder.applyCfg':'应用配置','feeder.cfgDef':'默认值','feeder.cfgDefDone':'已填入出厂默认值','feeder.cfgGet':'获取当前配置','feeder.cfgGot':'已获取当前配置','feeder.cfgTimeout':'设备未应答配置查询','feeder.adminPw':'输入管理页密码',
+  'feeder.pwErr':'密码错误','feeder.confirmReset':'确认恢复出厂设置？将重置当前飞达！',
+  'feeder.cmdSent':'指令已发送','feeder.offline':'离线','feeder.busy':'送料中','feeder.noaddr':'缺少地址参数',
+  'feeder.blink':'闪烁定位','feeder.blinkStop':'停止闪烁','feeder.up':'升级固件',
+  'feeder.calib':'舵机校准','feeder.test':'测试功能','feeder.calibHint':'开始前请先接入校准设备（0°/90° 限位开关或校准工装），并确认贴片机已停止、该飞达空闲。校准会反复转动舵机，递加逼近防过冲，成功后才写回 V/W。',
+  'feeder.calibWarn':'请先接入校准设备（0°/90° 限位开关或校准工装），再开始校准。\n校准会按限位开关递加逼近 0°/90° 脉宽(防过冲扫齿)，成功后才写回 V/W。\n请确认贴片机已停止、飞达空闲。\n校准进行中请勿关闭/切换本页面：页面失联 20 秒后自动中止(配置不回写)。',
+  'feeder.calibKeepOpen':'校准进行中：请勿关闭或切换本页面，页面失联 20 秒后校准将自动中止（配置不会写回）。',
+  'feeder.calibStart':'校准已启动…','feeder.calibStop':'终止校准','feeder.calibStopDone':'校准已终止','feeder.calibDone':'校准完成','feeder.calibGo':'开始校准','feeder.log485':'485 实时日志','log.clear':'清空',
+  'unlock.unlocked':'已解锁','unlock.locked':'已锁定','unlock.lockBtn':'锁定','unlock.unlockBtn':'解锁操作',
+  'unlock.title':'解锁操作','unlock.warn':'解锁后将允许向 485 总线发送控制指令。\n请务必先停止贴片机飞达的当前动作，否则会导致动作混乱！',
+  'unlock.btn':'确认解锁','unlock.cancel':'取消','unlock.fail':'解锁失败','unlock.need':'请先解锁操作',
+  'ota.confirmDev':'确认升级该飞达固件？','ota.upgrading':'升级中…','ota.state.done':'完成','ota.state.error':'失败'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  const o = Object.assign({}, opts);
+  o.headers = Object.assign({ 'X-Auth-Token': (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '') }, opts.headers || {});
+  if (o.body && typeof o.body === 'object' && !(o.body instanceof FormData) && !(o.body instanceof Blob)) {
+    o.headers['Content-Type'] = 'application/json';
+    o.body = JSON.stringify(o.body);
+  }
+  /* 兼容旧浏览器: AbortSignal.timeout 是 Chrome 103+; 用 AbortController 手工超时 */
+  const ac = new AbortController();
+  const tm = setTimeout(() => ac.abort(), 10000);
+  try {
+    const r = await fetch(path, Object.assign({}, o, { signal: ac.signal }));
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+    return await r.json();
+  } finally { clearTimeout(tm); }
+});
+window.updateUnlockBar = window.updateUnlockBar || (() => {
+  const on = document.getElementById('unlockOn'), off = document.getElementById('unlockOff'), btn = document.getElementById('unlockBtn');
+  const u = !!window.__unlocked;
+  if (on) { on.style.display = u ? '' : 'none'; on.textContent = '已解锁'; }
+  if (off) { off.style.display = u ? 'none' : ''; off.textContent = '已锁定'; }
+  if (btn) { btn.textContent = u ? '锁定' : '解锁操作'; btn.className = 'btn sm ' + (u ? '' : 'warn'); }
+});
+window.pollUnlock = window.pollUnlock || (async () => {
+  try {
+    const d = await window.api('/api/unlock/status');
+    window.__unlocked = !!(d && d.unlocked);
+    window.updateUnlockBar();
+  } catch (e) {}
+});
+window.ensureUnlock = window.ensureUnlock || (async () => {
+  if (window.__unlocked) return true;
+  const ok = confirm('解锁操作：请先停止贴片机飞达的当前动作，否则会导致混乱。确认解锁？');
+  if (!ok) return false;
+  try {
+    const r = await window.api('/api/unlock?unlocked=1', { method: 'POST', body: { unlocked: true } });
+    if (r && r.ok && r.unlocked) { window.__unlocked = true; window.updateUnlockBar(); return true; }
+  } catch (e) {}
+  return false;
+});
+/* 兜底解锁按钮: 之前 feeder 页兜底脚本没有 toggleUnlock -> app.js 未加载时
+ * 点解锁按钮直接 "toggleUnlock is not defined", 完全无反应。 */
+window.toggleUnlock = window.toggleUnlock || (async () => {
+  if (window.__unlocked) {
+    window.__unlocked = false;
+    try { await window.api('/api/unlock?unlocked=0', { method: 'POST', body: { unlocked: false } }); } catch (e) {}
+    window.updateUnlockBar();
+    return;
+  }
+  await window.ensureUnlock();
+});
+window.__unlocked = window.__unlocked || false;
+/* 兜底格式化: app.js 未加载时 refresh() 仍能渲染状态卡(否则 fmtChip/fmtFw 未定义 -> 整卡空白) */
+window.fmtChip = window.fmtChip || (c => c ? ('000000' + Number(c).toString(16).toUpperCase()).slice(-6) : '-');
+window.fmtFw = window.fmtFw || (fw => (fw && fw > 0) ? (Math.floor(fw / 10000) + '.' + String(fw % 10000).padStart(4, '0')) : '-');
+window.errToast = window.errToast || ((e, fb) => toast(fb || (e && e.message) || 'error', true));
+window.esc = window.esc || (s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])));
+
+/* 定位: 优先 chipid(设备身份, 地址可改), 未识别设备用 addr 兜底 */
+const qp = new URLSearchParams(location.search);
+const chipQ = parseInt(qp.get('chipid'), 10) || 0;      // 十进制(与 JSON 字段一致)
+const slot = parseInt(qp.get('addr') ?? '', 10);           // 只认 addr / chipid
+if (!chipQ && (isNaN(slot) || slot < 0 || slot >= 64)) {
+  $('kv').innerHTML = `<b>!</b><span>${t('feeder.noaddr')}</span>`;
+} else if (!chipQ) {
+  $('titlePos').textContent = 'Addr ' + slot;
+}
+let addr0 = (chipQ || isNaN(slot)) ? 0 : slot;          // chipid 定位时地址待查询, 先置 0
+/* 地址下拉: 99(临时/未配置) + 0~63(R 改址); 99 表示不改地址 */
+(function(){
+  const sel = $('cfgAddr'); if (!sel) return;
+  const o99 = document.createElement('option');
+  o99.value = '99'; o99.textContent = '99 (临时/未配置)';
+  sel.appendChild(o99);
+  for (let i = 0; i < 64; i++) {
+    const o = document.createElement('option');
+    o.value = String(i); o.textContent = String(i);
+    sel.appendChild(o);
+  }
+})();
+
+let lastFeeder = null;                          // 最近一次 /api/feeder 结果(供 refreshUntilCfg 判断参数是否就绪)
+let configDirty = false;                        // 用户正在编辑配置: 后台自动刷新不覆盖输入框
+let feedLenTouched = false;                     // 用户手动选过推料距离: 自动刷新不覆盖 feedLen
+async function refresh(force) {        // force=true: 获取当前配置按钮手动触发, 输入框强制回填(忽略聚焦)
+  if (isNaN(slot) && !chipQ) return;
+  try {
+    const url = chipQ ? ('/api/feeder?chipid=' + chipQ) : ('/api/feeder?addr=' + slot);
+    const f = await api(url);
+    if (f && f.error) {                          // 后端返回 {"error":"no feeder"} 时不再写 undefined
+      toast(f.error === 'no feeder' ? t('feeder.unknown') : f.error, true);
+      return;
+    }
+    lastFeeder = f;
+    const asel = $('cfgAddr');
+    if (asel && (force || !configDirty)) asel.value = (f.addr >= 0) ? String(f.addr) : '';  // 99=临时/未配置, 表示不改地址
+    if (chipQ) { addr0 = f.addr; $('titlePos').textContent = 'Addr ' + addr0; }  // 地址以查询结果为准
+    $('kv').innerHTML =
+      (f.boot ? `<b>状态</b><span style="color:#f59e0b">BOOT 等待升级（升级中断电，请重新升级固件）</span>` : '') +
+      `<b>Addr</b><span>${f.boot ? 'BOOT' : f.addr}</span>
+       <b>${t('feeder.chipid')}</b><span>${fmtChip(f.chipid)}</span>
+       <b>${t('feeder.ver')}</b><span>${f.fwVer || t('feeder.unknown')}</span>
+       <b>${t('feeder.fw')}</b><span>${fmtFw(f.fw)}</span>
+       <b>${t('feeder.cfgT')}</b><span>${f.cfgT >= 0 ? f.cfgT + 'ms' : t('feeder.unknown')}</span>
+       <b>${t('feeder.feedCnt')}</b><span>${f.feed ?? '-'}</span>
+       <b>${t('feeder.cfgA')}</b><span>${f.cfgA >= 0 ? f.cfgA : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgB')}</b><span>${f.cfgB >= 0 ? f.cfgB : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgC')}</b><span>${f.cfgC >= 0 ? f.cfgC : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgF')}</b><span>${f.cfgF >= 0 ? f.cfgF : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgU')}</b><span>${f.cfgU >= 0 ? f.cfgU : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgV')}</b><span>${f.cfgV >= 0 ? f.cfgV : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgW')}</b><span>${f.cfgW >= 0 ? f.cfgW : t('feeder.unknown')}</span>
+       <b>${t('feeder.cfgX')}</b><span>${f.cfgX >= 0 ? f.cfgX : t('feeder.unknown')}</span>`;
+    // 参数配置输入框跟随设备当前真实值(>=0 才填; 轮询已停, 仅 force(按钮)或操作后刷新回填;
+    // 非 force 时跳过正在编辑的输入框, 避免覆盖用户输入)
+    const ae = document.activeElement;
+    /* 用户改过配置后，自动刷新只更新状态/按钮，不回填输入框；点“应用”或“获取”后再覆盖。 */
+    const fillInp = (id, v) => {
+      const el = $(id);
+      if (el && v >= 0 && (force || (!configDirty && ae !== el))) el.value = v;
+    };
+    fillInp('cfgA', f.cfgA); fillInp('cfgB', f.cfgB); fillInp('cfgC', f.cfgC);
+    fillInp('cfgF', f.cfgF); fillInp('cfgU', f.cfgU); fillInp('cfgV', f.cfgV);
+    fillInp('cfgW', f.cfgW); fillInp('cfgT', f.cfgT);              // T N20 超时(0~5000, 可编辑)
+    if (f.cfgX >= 0 && (force || (!configDirty && ae !== $('cfgX')))) $('cfgX').value = String(f.cfgX);
+    // ChipID 后端已缓存, 默认填入输入框(强校验参考; 6 位大写 hex 与协议一致)
+    if (f.chipid && $('cfgChip') && (force || !configDirty)) $('cfgChip').value = ('000000' + f.chipid.toString(16).toUpperCase()).slice(-6);
+    if (f.cfgF >= 0 && $('feedLen') && (force || (!configDirty && !feedLenTouched))) $('feedLen').value = String(f.cfgF);   // 送料长度跟随配置
+    // 使能/禁用合并按钮: 使能态=绿[禁用飞达], 禁用态=红[启用飞达]
+    const enBtn = $('enableBtn');
+    if (enBtn) {
+      const en = f.hasEnable ? !!f.enabled : false;
+      enBtn.className = 'btn ' + (en ? 'ok' : 'danger');
+      enBtn.textContent = en ? t('feeder.disable') : t('feeder.enableBtn');
+    }
+  } catch (e) { console.warn('refresh failed', e); errToast(e, t('feeder.unknown')); }
+}
+
+/* 发一次 M602 单点查询(只读, 免解锁); chipid 定位时后端自动补当前地址 + P 校验 */
+async function queryCfg() {
+  if (isNaN(slot) && !chipQ) return;
+  const cid = chipQ || (lastFeeder && lastFeeder.chipid) || 0;
+  await api('/api/command', { method: 'POST',
+    body: cid ? { code: 602, chipid: cid } : { code: 602, addr: addr0 } });
+  /* M602 应答异步回来后再回读一次，en 按钮立即跟实际状态。 */
+  await new Promise(res => setTimeout(res, 300));
+  await refresh();
+}
+
+/* 发查询后等待配置参数就绪: 有界轮询(350ms 一跳), 直到参数有值或超时。
+ * - 判定看 A/V(单点应答必带) + cfgSeq 必须比查询前更新: 否则缓存里已有旧值时
+ *   会在新应答到达前立刻返回, 页面显示的还是旧参数。
+ * - 每 2s 补发一次 M602: 单次查询可能因总线忙/丢帧失败, 只发一次会永久停在"未知"。 */
+async function refreshUntilCfg(timeoutMs = 6000, minSeq = -1) {
+  const t0 = Date.now();
+  let lastQuery = t0;
+  while (Date.now() - t0 < timeoutMs) {
+    await refresh(true);
+    const f = lastFeeder;
+    const fresh = (minSeq < 0) || ((f && f.cfgSeq ? f.cfgSeq : 0) > minSeq);
+    if (f && f.cfgA >= 0 && f.cfgV >= 0 && fresh) return true;
+    if (Date.now() - lastQuery >= 2000) {
+      lastQuery = Date.now();
+      try { await queryCfg(); } catch (e) { /* 下一轮再试 */ }
+    }
+    await new Promise(r => setTimeout(r, 350));
+  }
+  return false;
+}
+
+/* 改址后等后端 chipid->addr 映射迁移到新地址, 避免紧接着的 M602 仍按旧地址发 */
+async function waitAddr(newAddr, timeoutMs = 3000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    await refresh(true);
+    if (lastFeeder && lastFeeder.addr === newAddr) return true;
+    await new Promise(r => setTimeout(r, 300));
+  }
+  return false;
+}
+async function toggleEnable() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  const en = !!$('enableBtn').classList.contains('ok');   // 当前是否使能态
+  const r = await cmd(610, { s: en ? 0 : 1 });
+  if (r && r.ok) refresh();
+}
+
+async function cmd(code, opts = {}) {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;        // 写操作需先解锁
+  const body = { code };                       // chipid 定位时不带 addr(后端查表转当前地址 + P 校验)
+  const cid = chipQ || (lastFeeder && lastFeeder.chipid) || 0;
+  if (cid) body.chipid = cid;                  // Web 业务统一 P<chipid>
+  else body.addr = addr0;                      // 未识别设备: 按地址兜底
+  if (opts.f !== undefined) body.f = opts.f;
+  if (opts.a !== undefined) body.a = opts.a;
+  if (opts.s !== undefined) body.s = opts.s;
+  if (opts.t !== undefined) body.t = opts.t;
+  if (opts.password) body.password = opts.password;
+  let d;
+  try {
+    d = await api('/api/command', { method: 'POST', body });
+  } catch (e) {
+    if (e && e.status === 403 && e.data && e.data.msg === 'locked') {
+      window.__unlocked = false; updateUnlockBar();   // 后端已锁(如 5 分钟无操作): 同步本地状态
+    }
+    errToast(e);
+    return null;
+  }
+  if (!d.ok) {
+    if (d.msg === 'locked') { toast(t('unlock.need'), true); window.__unlocked = false; updateUnlockBar(); }
+    if (d.msg === 'admin required') { toast(t('feeder.pwErr'), true); }
+    if (d.msg === 'device not found') { toast(t('feeder.unknown'), true); }
+    return null;
+  }
+  let l = '> M' + code + (cid ? (' P' + cid.toString(16).toUpperCase()) : (' N' + addr0));
+  if (opts.f !== undefined) l += ' F' + opts.f;
+  if (opts.a !== undefined) l += ' A' + opts.a;
+  if (opts.s !== undefined) l += ' S' + opts.s;
+  if (opts.t !== undefined) l += ' T' + opts.t;
+  toast(t('feeder.cmdSent') + ' M' + code);
+  return d;
+}
+
+/* ---- 485 应答等待: 等待自 seq0 起出现的 ok/error 应答帧(用于重复送料按结果反馈推进) ---- */
+async function nextLogSeq() {
+  try { const d = await api('/api/log/seq'); return (d && d.latest) || 0; }   // 轻量接口: 不再整包拉 200 条日志
+  catch (e) { return 0; }
+}
+async function waitReply(seq0, timeoutMs) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    try {
+      const d = await api('/api/log?since=' + seq0);
+      for (const it of (d && d.items) || []) {
+        if (it.dir !== 'R') continue;
+        const s = String(it.d || '').trim();
+        if (/^(ok|error)/i.test(s)) return { ok: /^ok/i.test(s), raw: s };
+      }
+    } catch (e) {}
+    await new Promise(res => setTimeout(res, 120));
+  }
+  return { ok: false, timeout: true, raw: '' };
+}
+
+/* 配置输入变更 -> 暂停自动回填，直到应用/获取。 */
+(function(){
+  const ids = ['cfgAddr','cfgA','cfgB','cfgC','cfgF','cfgU','cfgV','cfgW','cfgX','cfgT','cfgChip'];
+  ids.forEach(id => {
+    const el = $(id);
+    if (el) { el.addEventListener('input', () => { configDirty = true; }); el.addEventListener('change', () => { configDirty = true; }); }
+  });
+  const fl = $('feedLen');
+  if (fl) { fl.addEventListener('change', () => { feedLenTouched = true; }); fl.addEventListener('input', () => { feedLenTouched = true; }); }
+})();
+
+/* 统一判断飞达是否使能: 未知时先查 602，再决定是否允许发控制命令。 */
+async function ensureFeederEnabled() {
+  if (!lastFeeder || !lastFeeder.hasEnable) {
+    await queryCfg();
+    await refresh(!configDirty);
+  }
+  if (lastFeeder && lastFeeder.hasEnable && !lastFeeder.enabled) {
+    toast(t('feeder.disabledFirst'), true);
+    return false;
+  }
+  return true;
+}
+
+/* 送料: 下拉选长度 + 重复送料 x 次(1~999)。
+ * 每轮等待上一条 M600 的 485 应答: ok 才继续下一轮, error/超时立即中断(不固定 400ms 死等)。 */
+let feedBusy = false, feedStop = false;
+let feedDone = 0, feedTotal = 0;
+
+function feedUI(done, total, running) {
+  feedDone = done; feedTotal = total;
+  const p = $('feedProgress');
+  if (p) p.textContent = t('feeder.feedSent').replace('{n}', done).replace('{x}', total);
+  const b = $('feedStopBtn');
+  if (b) b.style.display = running ? 'inline-flex' : 'none';
+  const g = $('feedGoBtn');
+  if (g) { g.disabled = running; g.style.opacity = running ? '0.55' : ''; }
+}
+
+async function stopFeed() {
+  feedStop = true;
+  feedUI(feedDone, feedTotal, true);
+  try { await api('/api/feed/stop', { method: 'POST' }); } catch (e) {}
+}
+
+/* 送料: 下拉选长度 + 重复送料 x 次(1~999)。
+ * 每轮等待上一条 M600 的 485 应答: ok 才继续下一轮, error/超时立即中断。
+ * 生产锁启动时后端清掉未发的 M600，前端检测到 prod 也停止循环。 */
+async function cmdFeed() {
+  if (feedBusy) return;
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  if (!(await ensureFeederEnabled())) return;
+
+  const f = parseInt($('feedLen').value) || 4;
+  const x = Math.min(Math.max(parseInt($('feedRepeat').value) || 1, 1), 999);
+  feedBusy = true; feedStop = false;
+  let prodStop = false, errMsg = '';
+  feedUI(0, x, true);
+
+  for (let i = 0; i < x; i++) {
+    if (feedStop) break;
+
+    /* UART1 M600 已进入生产模式: 不再继续自动推料 */
+    try {
+      const st = await api('/api/feed/status');
+      if (st && st.prod) { prodStop = true; feedStop = true; break; }
+    } catch (e) {}
+
+    if (x > 1) toast(t('feeder.repeating').replace('{n}', i + 1).replace('{x}', x));
+    const seq0 = await nextLogSeq();          // 记录发送前日志游标(应答从 seq0 之后找)
+    const r = await cmd(600, { f: f });       // Web 业务统一 P<chipid>，F 必须显式带
+    if (!r || !r.ok) {
+      if (r && r.msg === 'production lock') prodStop = true;
+      else errMsg = t('feeder.replyErr');
+      break;
+    }
+    const a = await waitReply(seq0, 6000);    // 等设备 ok/error 应答
+    if (!a.ok) {
+      errMsg = (a.timeout ? t('feeder.replyTimeout') : t('feeder.replyErr')) +
+               (a.raw ? ' · ' + a.raw : '');
+      break;
+    }
+    feedUI(feedDone + 1, x, true);
+    /* M600 成功后立即回读当前飞达，推料次数不用等轮询 */
+    await refresh();
+    /* 给飞达应答尾字节/状态收尾留出间隔，避免下一条 M600 撞总线 */
+    if (i + 1 < x) await new Promise(res => setTimeout(res, 500));
+  }
+
+  feedBusy = false;
+  feedUI(feedDone, x, false);
+  if (prodStop) toast(t('feeder.feedProdStop'), true);
+  else if (errMsg) toast(errMsg, true);
+  else if (feedStop) toast(t('feeder.feedStopped'));
+  else if (feedDone >= x) toast(t('feeder.feedFull'));   // 停在 FULL，取料后手动/上位机 M601 回退
+}
+
+/* 常用角度快捷填入，不直接发送 */
+function fillAngle(v) {
+  const el = $('servoAngle');
+  if (el) el.value = String(v);
+}
+
+/* 手动设置舵机角度: M603 P<chipid> A<0~180> */
+async function cmdAngle() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  if (!(await ensureFeederEnabled())) return;
+  const a = Math.min(Math.max(parseInt($('servoAngle').value) || 0, 0), 180);
+  const r = await cmd(603, { a });
+  if (!r || !r.ok) return;
+  toast(t('feeder.angleSet') + ' ' + a + '°');
+}
+
+/* 回退推杆: M601 P<chipid> */
+async function cmdRetract() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  if (!(await ensureFeederEnabled())) return;
+  const r = await cmd(601, {});
+  if (!r || !r.ok) return;
+  toast(t('feeder.retracted'));
+}
+
+/* 获取当前配置: 真向设备发 M602 查询(只读, 免解锁), 再轮询到配置就绪后回填;
+ * 之前只调 refresh(true) 读缓存, 缓存为空时按钮名不副实, 永远显示"未知"。 */
+async function fetchCfg() {
+  if (isNaN(slot) && !chipQ) return;
+  configDirty = false;      /* 显式获取: 允许覆盖输入框 */
+  feedLenTouched = false;
+  try {
+    const base = lastFeeder ? (lastFeeder.cfgSeq || 0) : -1;
+    await queryCfg();
+    const got = await refreshUntilCfg(6000, base);
+    toast(got ? t('feeder.cfgGot') : t('feeder.cfgTimeout'), !got);
+  } catch (e) { errToast(e); }
+}
+
+/* 出厂默认值一键回填(与 input 初始值一致; 真机出厂值以 M799 恢复出厂后 M602 读回为准, 可再改) */
+const CFG_DEFAULTS = { a: 90, b: 44, c: 15, f: 4, u: 240, v: 550, w: 240, x: 0, t: 1000 };
+function fillDefaults() {
+  $('cfgA').value = CFG_DEFAULTS.a; $('cfgB').value = CFG_DEFAULTS.b;
+  $('cfgC').value = CFG_DEFAULTS.c; $('cfgF').value = CFG_DEFAULTS.f;
+  $('cfgU').value = CFG_DEFAULTS.u; $('cfgV').value = CFG_DEFAULTS.v;
+  $('cfgW').value = CFG_DEFAULTS.w; $('cfgT').value = CFG_DEFAULTS.t;
+  $('cfgX').value = String(CFG_DEFAULTS.x);
+  configDirty = true;   // 默认值只填页面，等用户应用
+  toast(t('feeder.cfgDefDone'));
+}
+
+/* M620 应用配置: 仅对当前飞达(N<addr>), 填 ChipID 则强校验(N+P) */
+async function applyConfig() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  /* 每个输入框简单校验: 角度 0~180, U/V/W/T 0~5000, F 仅允许 2/3/8/12/16/20/25 */
+  const num = (id, min, max, label) => {
+    const v = parseInt($(id).value);
+    if (isNaN(v) || v < min || v > max) { toast(label + ' 需在 ' + min + '~' + max, true); return null; }
+    return v;
+  };
+  const a = num('cfgA', 0, 180, 'A 角度');
+  const b = num('cfgB', 0, 180, 'B 角度');
+  const c = num('cfgC', 0, 180, 'C 角度');
+  const u = num('cfgU', 0, 5000, 'U 稳定时间');
+  const v = num('cfgV', 0, 5000, 'V 最小脉宽');
+  const w = num('cfgW', 0, 5000, 'W 最大脉宽');
+  const tmo = num('cfgT', 0, 5000, 'T N20 超时');
+  if ([a, b, c, u, v, w, tmo].some(x => x === null)) return;
+  const f = parseInt($('cfgF').value);
+  if (![2, 4, 8, 12, 16, 20, 24].includes(f)) { toast('F 进料长度只能选 2/4/8/12/16/20/24', true); return; }
+  const newAddr = parseInt($('cfgAddr').value);
+  if (isNaN(newAddr) || (newAddr !== 99 && (newAddr < 0 || newAddr > 63))) {
+    toast('请选择 99(临时/未配置) 或 0~63 的地址', true); return;
+  }
+  const curAddr = lastFeeder ? lastFeeder.addr : addr0;
+  if (newAddr === 99 && curAddr !== 99) {
+    toast('99 仅用于未配置/临时飞达；已配置飞达请选 0~63', true); return;
+  }
+
+  /* 改址前查当前总线设备: 新地址已有别的 ChipID 则拒绝(页面 + 后端双重检查) */
+  if (newAddr !== 99 && newAddr !== curAddr) {
+    try {
+      const list = await api('/api/feeders');
+      const curChip = (lastFeeder && lastFeeder.chipid) || chipQ || 0;
+      const nf = list && list.feeders ? list.feeders[newAddr] : null;
+      if (nf && nf.present && nf.chipid && nf.chipid !== curChip) { toast('地址已被其它飞达占用', true); return; }
+      const tf = ((list && list.temp) || []).find(x => x.addr === newAddr && x.chipid && x.chipid !== curChip);
+      if (tf) { toast('地址已被其它飞达占用', true); return; }
+    } catch (e) { errToast(e); return; }
+  }
+
+  const body = { code: 620, a, b, c, f, u, v, w, t: tmo, x: parseInt($('cfgX').value) || 0 };
+  if (newAddr !== 99) body.r = newAddr;         // 99 = 不改地址, 不发送 R
+  const cid = chipQ || (lastFeeder && lastFeeder.chipid) || 0;
+  if (cid) body.chipid = cid;                   // Web 业务统一 P<chipid>
+  else body.addr = addr0;
+  const cp = $('cfgChip').value.trim();
+  if (cp && !/^[0-9a-fA-F]{6}$/.test(cp)) { toast('ChipID 需 6 位十六进制(如 F724C4)', true); return; }
+  if (cp) body.chipid = parseInt(cp, 16);       // 用户填的 chipid 优先(强校验 N+P)
+  let d;
+  try {
+    d = await api('/api/command', { method: 'POST', body });
+  } catch (e) {
+    if (e && e.status === 403 && e.data && e.data.msg === 'locked') {
+      window.__unlocked = false; updateUnlockBar();
+    }
+    errToast(e);
+    return;
+  }
+  if (!d.ok) {
+    if (d.msg === 'locked') { toast(t('unlock.need'), true); window.__unlocked = false; updateUnlockBar(); }
+    return;
+  }
+  let l = '> M620 N' + addr0 + (newAddr !== 99 ? (' R' + newAddr) : '') + ' A' + a + ' B' + b + ' C' + c +
+          ' F' + f + ' U' + u + ' V' + v + ' W' + w + ' X' + body.x + ' T' + tmo;
+  if (cp) l += ' P' + cp.toUpperCase();
+  configDirty = false;   /* 已提交，允许回读覆盖 */
+  feedLenTouched = false;
+  toast(t('feeder.cmdSent') + ' M620');
+  /* 应用后自动回读一次: M620 只回 "ok ready" 不含配置, 必须再发 M602。
+   * 先等 400ms 让下位机把参数写进 EEPROM, 再以当前 cfgSeq 为基线等新应答。 */
+  if (newAddr !== 99 && newAddr !== curAddr) await waitAddr(newAddr, 3000);
+  await new Promise(r => setTimeout(r, 400));
+  try {
+    const base = lastFeeder ? (lastFeeder.cfgSeq || 0) : -1;
+    await queryCfg();
+    const got = await refreshUntilCfg(6000, base);
+    if (!got) toast(t('feeder.cfgTimeout'), true);
+  } catch (e) { /* 查询失败不影响"已应用"提示 */ }
+}
+
+async function resetFeeder() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  if (!confirm(t('feeder.confirmReset') + ' (Addr ' + addr0 + ')?')) return;
+  const pw = prompt(t('feeder.adminPw'));     // M799 需管理页密码(定向当前地址)
+  if (pw === null) return;
+  const r = await cmd(799, { password: pw });
+  if (r && r.ok) {
+    /* M799 后设备地址回到 99: 等后端把 chipid 映射迁到临时表, 页面跟着显示 99。
+     * 恢复出厂会清 EEPROM 配置，必须重新 M602 P<chipid>，否则页面继续显示旧缓存。 */
+    toast('已恢复出厂，地址已变为 99');
+    configDirty = false;
+    feedLenTouched = false;
+    await waitAddr(99, 5000);
+    await queryCfg();
+    /* M799 会软复位，M602 可能在 ready 前发出；再走一次带超时的 fetchCfg。 */
+    await fetchCfg();
+    await refresh(true);
+  }
+}
+
+/* 清零当前飞达推料计数(按 ChipID 清, 地址可改不影响) */
+async function clearFeed() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!confirm(t('feeder.clearFeedConfirm') + ' (Addr ' + addr0 + ')?')) return;
+  if (!(await ensureUnlock())) return;
+  try {
+    /* bodyless 接口不能靠 body；显式 query/header 定位 */
+    const q = chipQ ? ('?chipid=' + chipQ) : ('?addr=' + addr0);
+    const h = chipQ ? { 'X-chipid': String(chipQ) } : { 'X-addr': String(addr0) };
+    const r = await api('/api/feed/clear' + q, { method: 'POST', headers: h });
+    if (!r || !r.ok) { toast((r && r.msg) || t('feeder.unknown'), true); return; }
+    toast(t('feeder.cleared'));
+    await refresh(true);   // 强制回读，避免缓存旧计数
+  } catch (e) { errToast(e); }
+}
+
+/* 闪烁定位 toggle: M611 闪(冲突/未配置精确定位), 再点 M612 停。仅 LED, 免解锁 */
+let __blinkOn = false;
+async function blinkFeeder() {
+  if (isNaN(slot) && !chipQ) return;
+  let d;
+  try {
+    const cid = chipQ || (lastFeeder && lastFeeder.chipid) || 0;
+    d = await api('/api/command', { method: 'POST',
+      body: cid ? { code: __blinkOn ? 612 : 611, chipid: cid } : { code: __blinkOn ? 612 : 611, addr: addr0 } });
+  } catch (e) { errToast(e); return; }
+  if (d.ok) {
+    __blinkOn = !__blinkOn;
+    $('blinkBtn').textContent = __blinkOn ? t('feeder.blinkStop') : t('feeder.blink');
+    toast(__blinkOn ? t('feeder.blink') : t('feeder.blinkStop'));
+  }
+}
+
+/* ---- 舵机校准(ESP32 侧递加逼近, 调测并入详情页) ---- */
+let calibTimer = null;
+let calibRunning = false;
+async function cmdCalib() {
+  if (isNaN(slot) && !chipQ) return;
+  if (!(await ensureUnlock())) return;
+  /* 已经在校准: 同一个按钮改为终止, 不再弹开始确认 */
+  if (calibRunning) {
+    try { await api('/api/calib/stop', { method: 'POST' }); } catch (e) {}
+    calibRunning = false;
+    if (calibTimer) { clearInterval(calibTimer); calibTimer = null; }
+    if ($('calibGoBtn')) $('calibGoBtn').textContent = t('feeder.calibGo');
+    if ($('calibProg')) $('calibProg').style.display = 'none';
+    toast(t('feeder.calibStopDone'));
+    return;
+  }
+  if (!confirm(t('feeder.calibWarn'))) return;
+  if (!lastFeeder) await refresh(true);
+  /* 优先用 /api/feeder 回读的十进制 ChipID；chipQ 只作兜底 */
+  const cid = (lastFeeder && lastFeeder.chipid) || chipQ || 0;
+  if (!cid) { toast('未识别 ChipID，无法校准', true); return; }
+  try {
+    /* calib 是 bodyless 接口：body 会被去掉，chipid 必须同时放 query + header */
+    const r = await api('/api/calib?chipid=' + cid + '&mode=2', { method: 'POST',
+      headers: { 'X-chipid': String(cid), 'X-mode': '2' } });
+    if (!r || !r.ok) { toast((r && r.msg) || 'fail', true); return; }
+    calibRunning = true;
+    if ($('calibGoBtn')) $('calibGoBtn').textContent = t('feeder.calibStop');
+    toast(t('feeder.calibStart'));
+    $('calibProg').style.display = 'block';
+    calibTimer = setInterval(pollCalib, 500);
+    setTimeout(() => { if (calibTimer) { clearInterval(calibTimer); calibTimer = null; } }, 90000);
+    await pollCalib();          // 立即拉一次状态，避免按钮滞后到下次 500ms
+  } catch (e) { errToast(e); }
+}
+
+/* ---- 飞达固件升级入口: 跳转独立升级页(带 chipid/addr/fw + token) ----
+ * fw/fwVer 直接从详情页缓存带过去, 升级页无需再发 M602 查询板上版本。 */
+function upgradeFeeder() {
+  if (isNaN(slot) && !chipQ) return;
+  const t = new URLSearchParams(location.search).get('token');
+  let u = 'feeder_upgrade.html?';
+  if (chipQ) {
+    u += 'chipid=' + chipQ;
+    if (addr0 >= 0) u += '&addr=' + addr0;
+  } else {
+    u += 'addr=' + addr0;
+  }
+  if (t) u += '&token=' + t;
+  location.href = u;
+}
+
+async function pollCalib() {
+  try {
+    const s = await api('/api/calib/status');
+    if (s.running) {
+      if (!calibRunning) {
+        calibRunning = true;
+        if ($('calibGoBtn')) $('calibGoBtn').textContent = t('feeder.calibStop');
+      }
+      if ($('calibProg')) $('calibProg').style.display = 'block';
+      const st = (s.stage === 0 ? '0°' : s.stage === 1 ? '90°' : 'write');
+      if ($('calibState')) $('calibState').textContent = st + ' #' + s.iter + ' [' + (s.lo || '-') + '~' + (s.hi || '-') + ']';
+      if ($('calibBar')) $('calibBar').style.width = Math.min(100, (s.iter || 0) * 4) + '%';
+      return;
+    }
+    if (calibTimer) { clearInterval(calibTimer); calibTimer = null; }
+    if (calibRunning) {
+      calibRunning = false;
+      if ($('calibGoBtn')) $('calibGoBtn').textContent = t('feeder.calibGo');
+    }
+    if (s.msg) toast(s.msg, s.stage < 0);
+    if (s.done) { toast(t('feeder.calibDone') + ' · ' + s.msg); refresh(); }
+    if ($('calibProg')) $('calibProg').style.display = 'none';
+  } catch (e) {}
+}
+
+/* ---- 485 实时日志(时间戳 TX/RX) ---- */
+let lastSeq = 0;
+let logGen = 0;
+const panel = $('logPanel');
+function fmtT(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') + '.' + String(ms % 1000).padStart(3, '0');
+}
+async function clearLog() {
+  if (!panel) return;
+  logGen++;                         // 使清空前已在途的 poll 结果失效
+  try {
+    const r = await api('/api/log/clear', { method: 'POST' });
+    if (!r || !r.ok) { toast((r && r.msg) || 'clear failed', true); return; }
+    lastSeq = 0;
+    panel.innerHTML = '';
+  } catch (e) { errToast(e); }
+}
+/* 生产锁提示：详情页只读，不允许 Web 驱动飞达。 */
+async function loadProdInfo() {
+  const el = $('prodInfo');
+  if (!el) return;
+  try {
+    const d = await api('/api/status');
+    if (d && d.prod) {
+      el.style.display = 'block';
+      el.textContent = t('meta.prodLockedInfo');
+    } else {
+      el.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+async function pollLog() {
+  if (!panel) return;
+  const gen = logGen;
+  try {
+    const d = await api('/api/log?since=' + lastSeq);
+    if (gen !== logGen) return;     // 清空期间返回的旧数据不再追加
+    if (!d.ok) { console.warn('log api not ok', d); return; }
+    lastSeq = d.latest;
+    for (const it of (Array.isArray(d.items) ? d.items : [])) {
+      /* 485 实时日志只显示总线 TX/RX；D 是系统调试行([Web] REQ 等) */
+      if (it.dir !== 'T' && it.dir !== 'R') continue;
+      const cls = it.dir === 'T' ? 'tx' : 'rx';
+      const lbl = it.dir === 'T' ? 'TX→' : 'RX←';
+      const row = document.createElement('div');
+      row.className = 'lrow ' + cls;
+      const tag = chipAddrTag(it.d);
+      row.innerHTML = `<span class="lt">${fmtT(it.t)}</span><span class="ld">${lbl}</span><span class="ldata">${esc(it.d)}${tag ? esc(tag) : ''}</span>`;
+      panel.appendChild(row);
+    }
+    while (panel.childNodes.length > 400) panel.removeChild(panel.firstChild);
+    if (d.items.length) panel.scrollTop = panel.scrollHeight;
+  } catch (e) {}
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

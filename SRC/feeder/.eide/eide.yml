@@ -1,0 +1,62 @@
+﻿version: "4.1"
+name: ddfeedermcu
+type: C51
+deviceName: null
+packDir: null
+srcDirs:
+  - src
+  - lib/FwLib_STC8-master/include
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 831662ee7b801c5951d126a9eb0d193d
+targets:
+  Debug:
+    cppPreprocessAttrs:
+      defineList: []
+      incList:
+        - inc
+        - lib/FwLib_STC8-master
+        - lib/FwLib_STC8-master/include
+        - src
+      libList:
+        - lib
+    excludeList:
+      - src/rs485.c
+      - src/rs485_addr.c
+      - src/fw_uart.c
+    settings:
+      debugger: unknown
+    toolchain: SDCC
+    toolchainConfigMap:
+      SDCC:
+        options:
+          version: 3
+          afterBuildTasks: []
+          asm-compiler: {}
+          beforeBuildTasks:
+            - name: 创建版本号
+              abortAfterFailed: false
+              command: powershell -ExecutionPolicy Bypass -File gen_fw_ver.ps1"
+              disable: false
+              stopBuildAfterFailed: true
+          c/cpp-compiler:
+            language-c: c99
+          global:
+            device: mcs51
+            misc-controls: --iram-size 256 --xram-size 1024 --code-loc 0x1800 --code-size 20992 -Wl-bHOME=0x1800 --stack-auto
+            optimize-type: size
+          linker:
+            $mainFileName: main
+            output-format: hex
+    uploadConfigMap:
+      Custom:
+        bin: ""
+        commandLine: python ./tools/stcflash.py -p COM33 "${hexFile}"
+        eraseChipCommand: ""
+    uploader: Custom
+

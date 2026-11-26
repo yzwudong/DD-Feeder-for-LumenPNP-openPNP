@@ -1,0 +1,377 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>WiFi - SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮（移动端 ≥44px 触控目标） */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.ok{background:var(--ok);color:#052e16;border-color:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 面板 / 卡片 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:420px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;transition:.15s}
+.card:hover{border-color:var(--acc);transform:translateY(-2px)}
+.card.offline{opacity:.38;filter:grayscale(70%)}   /* 无飞达(未安装): 灰化 */
+.card.enabled{border-color:var(--ok)}              /* 使能: 绿边 */
+.card.disabled{border-color:#b45309;opacity:.6}    /* 禁用: 暗橙边 + 半透明 */
+.warnbar{background:#3b1d1d;border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.6}
+.card .pos{font-weight:700;font-size:13px}
+.card .addr{font-size:13px;font-weight:700;color:var(--txt)}
+.card .cid{font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .ver{font-size:10px;color:var(--mut)}
+.st{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;margin-top:6px}
+.st.online{background:#052e16;color:var(--ok)}
+.st.offline{background:#1e293b;color:var(--mut)}
+.st.enabled{background:#052e16;color:var(--ok)}    /* 使能: 绿 */
+.st.disabled{background:#3b2a17;color:#e0a04a}     /* 禁用: 橙 */
+
+/* 使能 toggle 开关 */
+.ctlTxt{font-size:13px;color:var(--mut)}
+.switch{position:relative;display:inline-block;width:44px;height:24px;vertical-align:middle}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#475569;border-radius:24px;cursor:pointer;transition:.2s}
+.switch .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--ok)}
+.switch input:checked + .slider:before{transform:translateX(20px)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--off)}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+/* 表单 */
+.field{margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.field label{color:var(--mut);font-size:13px}
+.field input{background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+             padding:12px 14px;font-size:16px;min-height:44px;width:100%}
+input:focus{outline:none;border-color:var(--acc)}
+
+/* WiFi 列表 */
+.wlist{display:flex;flex-direction:column;gap:8px}
+.witem{display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);
+       border-radius:10px;padding:10px 12px;cursor:pointer;min-height:48px}
+.witem.sel{border-color:var(--acc)}
+.witem .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.witem .sig{color:var(--mut);font-size:12px;min-width:70px;text-align:right}
+
+/* 键值 */
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:12px 0}
+.kv b{color:var(--mut);font-weight:400}
+.kv.lg{grid-template-columns:130px 1fr}
+
+/* 进度条 */
+.pbar{height:14px;background:#0f172a;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:10px 0}
+.pbar>div{height:100%;width:0;background:linear-gradient(90deg,#0ea5e9,#38bdf8);transition:width .3s}
+.pinfo{font-size:12px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* 控制网格（单飞达页） */
+.ctl{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:700px){.ctl{grid-template-columns:repeat(4,1fr)}}
+
+/* 一行两卡(状态+控制等); 窄屏自动堆叠 */
+.row2{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.row2 .row{flex:1 1 340px;margin-bottom:0}
+/* 控制卡内容纵向排列 */
+.ctl.col{display:flex;flex-direction:column;gap:10px}
+.ctlrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* 登录 */
+.login-wrap{min-height:calc(100vh - 24px);display:flex;align-items:center;justify-content:center;padding:16px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;width:min(400px,100%)}
+.login-card h1{font-size:18px;margin-bottom:16px;text-align:center}
+
+/* 日志 */
+.log{background:#020617;border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-height:160px;
+     overflow:auto;font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--mut);margin-top:10px}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+
+/* 安全解锁条 */
+.unlockbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px;flex-wrap:wrap}
+.unlockbar.locked{background:rgba(239,68,68,.10);border:1px solid var(--err);color:#f87171}
+.unlockbar.unlocked{background:rgba(34,197,94,.10);border:1px solid var(--ok);color:#4ade80}
+.unlockbar .sttxt{flex:1;min-width:120px}
+.btn.warn{background:#f59e0b;color:#fff}
+
+/* 确认弹窗 */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 实时日志 */
+.logpanel{background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:10px;height:58vh;overflow-y:auto;
+          font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.7}
+.lrow{display:flex;gap:10px;padding:2px 6px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.lrow:nth-child(odd){background:rgba(255,255,255,.025)}
+.lrow .lt{color:#64748b;flex:none}
+.lrow .ld{flex:none;font-weight:600}
+.lrow.tx .ld{color:#f59e0b}
+.lrow.rx .ld{color:#38bdf8}
+.lrow .ldata{color:#e2e8f0}
+
+/* 开关 */
+.switch{position:relative;display:inline-block;width:50px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--line);border-radius:28px;transition:.2s;cursor:pointer}
+.slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--acc)}
+.switch input:checked+.slider:before{transform:translateX(22px)}
+.authline{display:flex;align-items:center;gap:12px;justify-content:center;margin:0 0 8px;color:var(--mut);font-size:13px}
+
+.rolebar{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;font-size:12px;background:#14532d;color:#bbf7d0}.rolebar.rolegray{background:#3f3f46;color:#a1a1aa}.hidden{display:none !important}</style>
+</head>
+<body>
+<header class="top">
+  <h1><span data-i18n="wifi.title">WiFi 设置</span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  <span class="rolebar" id="roleBar" style="display:none"></span></nav>
+</header>
+
+<div class="row">
+  <h2 data-i18n="wifi.sta">当前连接</h2>
+  <div class="kv" id="staKv"></div>
+  <button class="btn sm" id="btnRefresh" data-i18n="wifi.refresh" onclick="loadStatus()">刷新状态</button>
+</div>
+
+<div class="row">
+  <h2 data-i18n="wifi.saved">已保存网络</h2>
+  <div class="wlist" id="saveList"><p style="color:var(--mut)" data-i18n="wifi.none">未保存</p></div>
+</div>
+
+<div class="row">
+  <h2 style="display:flex;justify-content:space-between;align-items:center">
+    <span data-i18n="wifi.sel">选择网络</span>
+    <button class="btn sm acc" id="btnScan" data-i18n="wifi.scanbtn" onclick="scanNet()">扫描网络</button>
+  </h2>
+  <div class="wlist" id="netList"><p style="color:var(--mut)" data-i18n="wifi.scanbtn">扫描网络</p></div>
+</div>
+
+<div class="row">
+  <h2 data-i18n="wifi.connect">连接并保存</h2>
+  <div class="field"><label data-i18n="wifi.ssid">WiFi 名称</label><input id="ssid" autocomplete="off"></div>
+  <div class="field"><label data-i18n="wifi.pass">WiFi 密码</label><input id="pass" type="password" autocomplete="off"></div>
+  <button class="btn acc block" id="btnConn" data-i18n="wifi.connect" onclick="connectNet()" data-w>连接并保存</button>
+</div>
+
+<div class="row">
+  <h2 data-i18n="wifi.apmode">AP 模式</h2>
+  <p class="hint" data-i18n="wifi.apmodeHint">切换后设备以热点启动(SMT-Feeder-AP)，手机直连访问；连上 WiFi 后自动回到 STA 模式</p>
+  <button class="btn warn block" id="btnAp" data-i18n="wifi.apmodeBtn" onclick="toApMode()">切换到 AP 模式</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* 延迟加载 app.js: 不在 HTML 源码中写 <script src> -> preload scanner 不会提前并发下载;
+   DOMContentLoaded 后才动态加载, 全程单请求, 避免 ESP32 单线程 WebServer 并发 reset */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+  loadStatus();
+  setInterval(loadStatus, 10000);
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，本页也独立可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.toast = window.toast || ((msg, isErr) => {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+});
+window.t = window.t || ((k) => ({
+  'nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.debug':'调测','nav.logout':'退出',
+  'wifi.title':'WiFi 设置','wifi.saved':'已保存网络','wifi.sta':'当前连接','wifi.ap':'热点模式',
+  'wifi.apssid':'热点名称','wifi.apip':'热点 IP','wifi.none':'未保存','wifi.disconnected':'未连接',
+  'wifi.scanbtn':'扫描网络','wifi.sel':'选择网络','wifi.ssid':'WiFi 名称','wifi.pass':'WiFi 密码','wifi.passReq':'此网络需要密码',
+  'wifi.connect':'连接并保存','wifi.connecting':'连接中，设备将切换到新网络，请用新 IP 重新访问',
+  'wifi.fail':'连接失败，已保持热点模式','wifi.refresh':'刷新状态',
+  'wifi.del':'删除','wifi.delConfirm':'删除已保存的网络“%s”？下次启动将不再尝试连接它',
+  'wifi.delDone':'已删除','wifi.delFail':'删除失败',
+  'wifi.apmode':'AP 模式','wifi.apmodeHint':'切换后设备以热点启动(SMT-Feeder-AP)，手机直连访问；连上 WiFi 后自动回到 STA 模式',
+  'wifi.apmodeBtn':'切换到 AP 模式','wifi.apmodeConfirm':'确认切换到 AP 模式？设备将重启并以热点 SMT-Feeder-AP 启动，手机连接该热点后访问 http://192.168.4.1'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  opts.headers = Object.assign({ 'X-Auth-Token': (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '') }, opts.headers || {});
+  if (opts.body && typeof opts.body === 'object') {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const r = await fetch(path, Object.assign({}, opts, { signal: AbortSignal.timeout(10000) }));
+  if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+  return r.json();
+});
+window.esc = window.esc || (s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])));
+window.fmtSig = window.fmtSig || ((rssi) => (rssi === undefined || rssi === null || rssi === -128) ? '-' : rssi + 'dBm');
+window.logout = window.logout || (async () => {
+  try { await window.api('/api/logout', { method: 'POST' }); } catch (e) {}
+  localStorage.removeItem('token');
+  location.href = '/login.html';
+});
+
+let selected = '';
+async function loadStatus() {
+  try {
+    const d = await api('/api/wifi/status');
+    const sta = d.sta, ap = d.ap;
+    $('staKv').innerHTML =
+      `<b>${t('wifi.sta')}</b><span>${sta.connected ? esc(sta.ssid) + ' · ' + esc(sta.ip) + ' · ' + fmtSig(sta.rssi) : t('wifi.disconnected')}</span>
+       <b>${t('wifi.ap')}</b><span>${ap.on ? esc(ap.ssid) + ' · ' + esc(ap.ip) : t('wifi.disconnected')}</span>`;
+    const saves = Array.isArray(d.saved) ? d.saved : [];
+    $('saveList').innerHTML = saves.length
+      ? saves.map(s => `<div class="witem"><span class="name">${esc(s.ssid)}</span><span class="sig"><button class="btn sm danger" data-ssid="${esc(s.ssid)}">${t('wifi.del')}</button></span></div>`).join('')
+      : `<p style="color:var(--mut)">${t('wifi.none')}</p>`;
+  } catch (e) {}
+}
+/* 删除已保存网络(事件委托) */
+$('saveList').addEventListener('click', e => {
+  const btn = e.target.closest('.btn');
+  if (!btn) return;
+  const ssid = btn.dataset.ssid;
+  if (!confirm(t('wifi.delConfirm').replace('%s', ssid))) return;
+  api('/api/wifi/delete', { method: 'POST', body: { ssid } })
+    .then(d => { toast(d.ok ? t('wifi.delDone') : (d.msg || t('wifi.delFail')), !d.ok); loadStatus(); })
+    .catch(() => { toast(t('wifi.delFail'), true); });
+});
+var selSecure = false;
+async function scanNet() {
+  $('netList').innerHTML = '<p style="color:var(--mut)">…</p>';
+  try {
+    const d = await api('/api/wifi/scan', { method: 'POST' });
+    if (!d.networks || !d.networks.length) { $('netList').innerHTML = '<p style="color:var(--mut)">-</p>'; return; }
+    $('netList').innerHTML = d.networks.map(n =>
+      `<div class="witem ${n.ssid === selected ? 'sel' : ''}" data-ssid="${esc(n.ssid)}" data-sec="${n.secure ? 1 : 0}">
+        <span class="name">${esc(n.ssid) || '&lt;hidden&gt;'}</span>
+        <span class="sig">${n.secure ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-2px;opacity:.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> ' : ''}${fmtSig(n.rssi)}</span>
+      </div>`).join('');
+  } catch (e) {}
+}
+$('netList').addEventListener('click', e => {
+  const item = e.target.closest('.witem');
+  if (!item) return;
+  selected = item.dataset.ssid;
+  selSecure = item.dataset.sec === '1';
+  $('ssid').value = selected;
+  document.querySelectorAll('.witem').forEach(w => w.classList.toggle('sel', w === item));
+});
+async function connectNet() {
+  const ssid = $('ssid').value.trim(), pass = $('pass').value;
+  if (!ssid) { toast(t('wifi.ssid'), true); return; }
+  if (selSecure && !pass) { toast('此网络需要密码', true); $('pass').focus(); return; }
+  $('btnConn').disabled = true;
+  try {
+    const d = await api('/api/wifi/connect', { method: 'POST', body: { ssid, pass } });
+    toast(d.ok ? t('wifi.connecting') : t('wifi.fail'), !d.ok);
+    setTimeout(loadStatus, 4000);
+  } catch (e) {}
+  $('btnConn').disabled = false;
+}
+
+async function toApMode() {
+  if (!confirm(t('wifi.apmodeConfirm'))) return;
+  const btn = $('btnAp'); if (btn) btn.disabled = true;
+  try {
+    await api('/api/wifi/apmode', { method: 'POST', body: { on: true } });
+  } catch (e) {}
+  // 设备即将重启, 稍后手动连接 SMT-Feeder-AP
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

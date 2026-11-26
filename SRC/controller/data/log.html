@@ -1,0 +1,389 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Terminal - SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮 */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.ok{background:var(--ok);color:#052e16;border-color:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 面板 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+
+/* 命令输入区 */
+.cmdbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.cmdbar input{flex:1 1 260px;background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+              padding:12px 14px;font-size:16px;min-height:44px;font-family:ui-monospace,Consolas,monospace}
+.cmdbar input:focus{outline:none;border-color:var(--acc)}
+.hint{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.7}
+.hint code{background:#0f172a;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--acc);cursor:pointer}
+.hint code:hover{color:#7dd3fc}
+.warnbar{background:#3b1d1d;border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.6}
+
+/* 实时日志 */
+.logpanel{background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:10px;height:52vh;overflow-y:auto;
+          font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.7}
+.lrow{display:flex;gap:10px;padding:2px 6px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.lrow:nth-child(odd){background:rgba(255,255,255,.025)}
+.lrow .lt{color:#64748b;flex:none}
+.lrow .ld{flex:none;font-weight:600}
+.lrow.tx .ld{color:#f59e0b}
+.lrow.rx .ld{color:#38bdf8}
+.lrow.dbg .ld{color:#94a3b8}
+.lrow.dbg .ldata{color:#94a3b8;font-style:italic}
+.lrow .ldata{color:#e2e8f0}
+
+/* 确认弹窗(密码) */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.modal input{width:100%;background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+             padding:12px 14px;font-size:16px;min-height:44px;margin-bottom:16px}
+.modal input:focus{outline:none;border-color:var(--acc)}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+.rolebar{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;font-size:12px;background:#14532d;color:#bbf7d0}.rolebar.rolegray{background:#3f3f46;color:#a1a1aa}.hidden{display:none !important}</style>
+</head>
+<body>
+<header class="top">
+  <h1><span data-i18n="term.title">终端</span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" class="on" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  <span class="rolebar" id="roleBar" style="display:none"></span></nav>
+</header>
+
+<div class="row">
+  <h2><span data-i18n="term.cmdTitle">发送 M-Code 命令</span></h2>
+  <div class="cmdbar">
+    <input id="cmdInput" placeholder="M610 S1" autocomplete="off" spellcheck="false">
+    <button class="btn acc" onclick="sendCmd()" data-i18n="term.send">发送</button>
+  </div>
+  <div class="hint">
+    <span data-i18n="term.hint">示例(点按填充):</span>
+    <code onclick="fill('M602 N5')">M602 N5</code>
+    <code onclick="fill('M610 N5 S1')">M610 N5 S1</code>
+    <code onclick="fill('M603 A90 N5')">M603 A90 N5</code>
+    <code onclick="fill('M620 N5 A180 B90 C0 F8 U200 V500 W2500 X0')">M620 N5 …</code>
+    <code onclick="fill('M900')">M900</code>
+    <code onclick="fill('M799')">M799</code>
+  </div>
+  <div class="warnbar" data-i18n="term.warn">危险命令（M799 恢复出厂 / M788 ISP 复位 / M903 电源 / M905 清零 / 广播写命令）需输入管理密码。</div>
+</div>
+
+<div class="row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  <span class="meta" data-i18n="log.hint">实时显示 UART2(485 总线) 的发送与接收消息</span>
+  <div style="margin-left:auto"></div>
+  <button class="btn sm" id="dbgBtn" onclick="toggleDbg()" data-i18n="term.dbgOff">调试日志:关</button>
+  <button class="btn sm" onclick="clearLog()" data-i18n="log.clear">清空</button>
+</div>
+
+<div class="logpanel" id="logPanel"></div>
+<div class="toast" id="toast"></div>
+
+<div class="modal-ov" id="pwOv" style="display:none">
+  <div class="modal">
+    <h3 data-i18n="term.pwTitle">需要管理密码</h3>
+    <p id="pwCmdTxt"></p>
+    <input type="password" id="pwInput" placeholder="********">
+    <div class="mbtns">
+      <button class="btn" onclick="closePw()" data-i18n="nav.cancel">取消</button>
+      <button class="btn danger" onclick="submitPw()" data-i18n="term.confirm">确认发送</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 延迟加载 app.js: 不在 HTML 源码中写 <script src> -> preload scanner 不会提前并发下载;
+   DOMContentLoaded 后才动态加载, 全程单请求, 避免 ESP32 单线程 WebServer 并发 reset */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+  loadDbg();
+  pollLog();
+  loadChipMap();
+  setInterval(loadChipMap, 10000);
+  setInterval(pollLog, 1000);
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，本页也独立可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.t = window.t || ((k) => ({
+  'nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.debug':'调测','nav.logout':'退出','nav.cancel':'取消','nav.login':'登录设置',
+  'term.title':'终端','term.cmdTitle':'发送 M-Code 命令','term.send':'发送','term.confirm':'确认发送',
+  'term.hint':'示例(点按填充):','term.warn':'危险命令（M799 恢复出厂 / M788 ISP 复位 / M903 电源 / M905 清零 / 广播写命令）需输入管理密码。',
+  'term.pwTitle':'需要管理密码','term.pwHint':'此命令会同时影响多台飞达或恢复出厂，请输入管理密码确认。',
+  'term.sent':'已发送','term.fail':'发送失败','term.adminErr':'请先登录：导航栏「登录设置」输入管理密码，或关闭登录开关','term.bad':'命令格式无法解析',
+  'term.dbgOn':'调试日志:开','term.dbgOff':'调试日志:关',
+  'log.hint':'实时显示 UART2(485 总线) 的发送与接收消息',
+  'log.tx':'TX→','log.rx':'RX←','log.dbg':'LOG','log.clear':'清空'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  opts.headers = Object.assign({ 'X-Auth-Token': (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '') }, opts.headers || {});
+  if (opts.body && typeof opts.body === 'object') {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const r = await fetch(path, Object.assign({}, opts, { signal: AbortSignal.timeout(10000) }));
+  if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+  return r.json();
+});
+window.esc = window.esc || (s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])));
+window.logout = window.logout || (async () => {
+  try { await window.api('/api/logout', { method: 'POST' }); } catch (e) {}
+  localStorage.removeItem('token');
+  location.href = '/login.html';
+});
+
+let lastSeq = 0;
+const panel = $('logPanel');
+
+async function clearLog() {
+  panel.innerHTML = '';
+  lastSeq = 0;
+  try {
+    const tok = localStorage.getItem('token') || '';
+    await fetch('/api/log/clear', { method: 'POST', headers: { 'X-Auth-Token': tok } });
+  } catch (e) {}
+}
+
+/* 迷你 toast(复用 #toast) */
+let _toastTimer = null;
+function toast(msg, isErr) {
+  const el = $('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.opacity = '1';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 1800);
+}
+
+/* 调试日志开关: 发 M906 S1/S0(本地系统命令, 非危险), 开关状态仅前端记忆 */
+let dbgOn = false;
+function renderDbgBtn() {
+  const btn = $('dbgBtn');
+  if (!btn) return;
+  btn.textContent = t(dbgOn ? 'term.dbgOn' : 'term.dbgOff');
+  btn.classList.toggle('ok', dbgOn);
+}
+async function loadDbg() {
+  try {
+    const tok = localStorage.getItem('token') || '';
+    const r = await fetch('/api/status', { headers: { 'X-Auth-Token': tok } });
+    if (!r.ok) return;
+    const d = await r.json();
+    dbgOn = !!d.log;
+    renderDbgBtn();
+  } catch (e) {}
+}
+async function toggleDbg() {
+  dbgOn = !dbgOn;
+  const btn = $('dbgBtn');
+  try {
+    const tok = localStorage.getItem('token') || '';
+    const rr = await fetch('/api/term', { method: 'POST', headers: { 'X-Auth-Token': tok, 'X-Cmd': dbgOn ? 'M906 S1' : 'M906 S0' } });
+    const d = await rr.json();
+    if (d && d.reply) {
+      const m = /log:(\d)/.exec(d.reply);
+      if (m) dbgOn = (m[1] === '1');               // 以设备实际状态为准
+    }
+  } catch (e) { dbgOn = !dbgOn; toast('ERR'); return; }
+  btn.textContent = t(dbgOn ? 'term.dbgOn' : 'term.dbgOff');
+  btn.classList.toggle('ok', dbgOn);
+  toast(dbgOn ? t('term.dbgOn') : t('term.dbgOff'));
+}
+
+/* 开机时长格式化 mm:ss.mmm */
+function fmtT(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' +
+         String(s % 60).padStart(2, '0') + '.' +
+         String(ms % 1000).padStart(3, '0');
+}
+
+async function pollLog() {
+  try {
+    const d = await api('/api/log?since=' + lastSeq);
+    if (!d.ok) { console.warn('log api not ok', d); return; }
+    lastSeq = d.latest;
+    for (const it of (Array.isArray(d.items) ? d.items : [])) {
+      const cls = it.dir === 'T' ? 'tx' : (it.dir === 'D' ? 'dbg' : 'rx');
+      const lbl = it.dir === 'T' ? t('log.tx') : (it.dir === 'D' ? t('log.dbg') : t('log.rx'));
+      const row = document.createElement('div');
+      row.className = 'lrow ' + cls;
+      const tag = chipAddrTag(it.d);
+      row.innerHTML = `<span class="lt">${esc(it.ts || fmtT(it.t))}</span>` +
+                      `<span class="ld">${lbl}</span>` +
+                      `<span class="ldata">${esc(it.d)}${tag ? esc(tag) : ''}</span>`;
+      panel.appendChild(row);
+    }
+    panel.scrollTop = panel.scrollHeight;
+  } catch (e) {}
+}
+
+function fill(cmd) { $('cmdInput').value = cmd; $('cmdInput').focus(); }
+
+/* ---- 命令发送(危险命令弹密码) ---- */
+let pwResolve = null, pendingCmd = '';
+
+function askPassword(cmd) {
+  pendingCmd = cmd;
+  $('pwCmdTxt').textContent = cmd;
+  $('pwInput').value = '';
+  $('pwOv').style.display = 'flex';
+  setTimeout(() => $('pwInput').focus(), 50);
+  return new Promise(res => { pwResolve = res; });
+}
+function closePw() { $('pwOv').style.display = 'none'; if (pwResolve) { pwResolve(null); pwResolve = null; } }
+function submitPw() {
+  const pw = $('pwInput').value;
+  $('pwOv').style.display = 'none';
+  if (pwResolve) { pwResolve(pw); pwResolve = null; }
+}
+
+async function sendCmd() {
+  const cmd = $('cmdInput').value.trim().toUpperCase();
+  if (!cmd) return;
+  const token = new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '';
+  let pw = '';
+  for (;;) {
+    let res, d = {};
+    try {
+      res = await fetch('/api/term', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Auth-Token': token,
+          'X-Admin-Pass': pw || '',
+          'X-Cmd': cmd
+        },
+        body: undefined   /* 只走 X-Cmd / X-Admin-Pass，避免 ESP32 等 body 卡 5s */
+      });
+      try { d = await res.json(); } catch (e) { d = {}; }
+    } catch (e) {
+      toast('网络请求失败', true);
+      return;
+    }
+    if (res.ok && d.ok) {
+      toast(d.reply ? t('term.sent') + ': ' + d.reply : t('term.sent'));
+      $('cmdInput').value = '';
+      return;
+    }
+    if (res.status === 403 && d.msg === 'admin required') {
+      if (pw && pw.length) { toast('管理员密码错误（默认 123456）', true); return; }
+      pw = await askPassword(cmd);
+      if (pw === null) return;
+      continue;
+    }
+    if (res.status === 403 && d.msg === 'locked') {
+      if (await ensureUnlock()) continue;
+      return;
+    }
+    toast(d.msg === 'cannot parse' ? t('term.bad') : (d.msg || t('term.fail')), true);
+    return;
+  }
+}
+
+/* 回车发送 */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement === $('cmdInput')) sendCmd();
+});
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

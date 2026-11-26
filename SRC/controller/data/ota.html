@@ -1,0 +1,820 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Firmware - SMT Feeder</title>
+
+<style>
+/* SMT 飞达控制器 - 共享样式（桌面/手机自适应） */
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--tx:#e2e8f0;--mut:#94a3b8;
+      --ok:#22c55e;--off:#64748b;--warn:#f59e0b;--err:#ef4444;--acc:#38bdf8}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;padding:12px;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+
+/* 顶栏 */
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;background:var(--card);
+     border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.top h1{font-size:17px;display:flex;align-items:center;gap:8px}
+.top .sp{flex:1}
+.meta{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;align-items:center}
+.meta b{color:var(--tx)}
+
+/* 导航 */
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-radius:8px;color:var(--tx);background:#0f172a;border:1px solid var(--line);font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+nav a.on{background:var(--acc);color:#06283b;border-color:var(--acc)}
+
+/* 语言切换 */
+.lang{display:flex;gap:4px}
+.lang button{background:#0f172a;border:1px solid var(--line);color:var(--mut);border-radius:8px;
+             padding:6px 10px;cursor:pointer;font-size:12px;min-height:32px}
+.lang button.on{color:var(--acc);border-color:var(--acc)}
+
+/* 按钮（移动端 ≥44px 触控目标） */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#334155;color:var(--tx);
+     border:1px solid var(--line);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:14px;
+     min-height:44px;min-width:44px}
+.btn:hover{filter:brightness(1.15)}
+.btn.acc{background:var(--acc);color:#06283b;border-color:var(--acc)}
+.btn.danger{background:var(--err);color:#fff;border-color:var(--err)}
+.btn.ok{background:var(--ok);color:#052e16;border-color:var(--ok)}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:36px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 面板 / 卡片 */
+.row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.row h2{font-size:15px;margin-bottom:10px;color:var(--acc);display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:700px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:420px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;transition:.15s}
+.card:hover{border-color:var(--acc);transform:translateY(-2px)}
+.card.offline{opacity:.38;filter:grayscale(70%)}   /* 无飞达(未安装): 灰化 */
+.card.enabled{border-color:var(--ok)}              /* 使能: 绿边 */
+.card.disabled{border-color:#b45309;opacity:.6}    /* 禁用: 暗橙边 + 半透明 */
+.warnbar{background:#3b1d1d;border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:10px 0;font-size:13px;line-height:1.6}
+.card .pos{font-weight:700;font-size:13px}
+.card .addr{font-size:13px;font-weight:700;color:var(--txt)}
+.card .cid{font-size:10px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .ver{font-size:10px;color:var(--mut)}
+.st{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;margin-top:6px}
+.st.online{background:#052e16;color:var(--ok)}
+.st.offline{background:#1e293b;color:var(--mut)}
+.st.enabled{background:#052e16;color:var(--ok)}    /* 使能: 绿 */
+.st.disabled{background:#3b2a17;color:#e0a04a}     /* 禁用: 橙 */
+
+/* 使能 toggle 开关 */
+.ctlTxt{font-size:13px;color:var(--mut)}
+.switch{position:relative;display:inline-block;width:44px;height:24px;vertical-align:middle}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:#475569;border-radius:24px;cursor:pointer;transition:.2s}
+.switch .slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + .slider{background:var(--ok)}
+.switch input:checked + .slider:before{transform:translateX(20px)}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--off)}
+.dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+/* 表单 */
+.field{margin:12px 0;display:flex;flex-direction:column;gap:6px}
+.field label{color:var(--mut);font-size:13px}
+.field input{background:#0f172a;border:1px solid var(--line);border-radius:10px;color:var(--tx);
+             padding:12px 14px;font-size:16px;min-height:44px;width:100%}
+input:focus{outline:none;border-color:var(--acc)}
+
+/* WiFi 列表 */
+.wlist{display:flex;flex-direction:column;gap:8px}
+.witem{display:flex;align-items:center;gap:10px;background:#0f172a;border:1px solid var(--line);
+       border-radius:10px;padding:10px 12px;cursor:pointer;min-height:48px}
+.witem.sel{border-color:var(--acc)}
+.witem .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.witem .sig{color:var(--mut);font-size:12px;min-width:70px;text-align:right}
+
+/* 键值 */
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:12px 0}
+.kv b{color:var(--mut);font-weight:400}
+.kv.lg{grid-template-columns:130px 1fr}
+
+/* 进度条 */
+.pbar{height:14px;background:#0f172a;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:10px 0}
+.pbar>div{height:100%;width:0;background:linear-gradient(90deg,#0ea5e9,#38bdf8);transition:width .3s}
+.pinfo{font-size:12px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+/* 控制网格（单飞达页） */
+.ctl{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:700px){.ctl{grid-template-columns:repeat(4,1fr)}}
+
+/* 一行两卡(状态+控制等); 窄屏自动堆叠 */
+.row2{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.row2 .row{flex:1 1 340px;margin-bottom:0}
+/* 控制卡内容纵向排列 */
+.ctl.col{display:flex;flex-direction:column;gap:10px}
+.ctlrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* 登录 */
+.login-wrap{min-height:calc(100vh - 24px);display:flex;align-items:center;justify-content:center;padding:16px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;width:min(400px,100%)}
+.login-card h1{font-size:18px;margin-bottom:16px;text-align:center}
+
+/* 日志 */
+.log{background:#020617;border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-height:160px;
+     overflow:auto;font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--mut);margin-top:10px;
+     white-space:pre-wrap}
+
+/* 提示 */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0ea5e9;color:#04263a;
+       padding:12px 20px;border-radius:10px;display:none;font-size:14px;z-index:99;max-width:90vw;text-align:center}
+.toast.err{background:var(--err);color:#fff}
+
+/* 安全解锁条 */
+.unlockbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin:0 0 12px;font-size:14px;flex-wrap:wrap}
+.unlockbar.locked{background:rgba(239,68,68,.10);border:1px solid var(--err);color:#f87171}
+.unlockbar.unlocked{background:rgba(34,197,94,.10);border:1px solid var(--ok);color:#4ade80}
+.unlockbar .sttxt{flex:1;min-width:120px}
+.btn.warn{background:#f59e0b;color:#fff}
+
+/* 在线升级 / 本地升级分区 */
+.sectiontitle{font-size:13px;color:var(--mut);letter-spacing:.04em;margin:14px 0 8px;text-transform:uppercase}
+.onlinegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.onlinecard{background:#0b1220;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.onlinecard h3{margin:0 0 8px;font-size:14px;color:var(--tx)}
+.onlinecard .kv{margin:6px 0 10px}
+.onlinecard .lrow{display:flex;gap:8px;flex-wrap:wrap}
+/* 本地升级卡片 */
+.localgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.localcard{background:#0b1220;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.localgrid .localcard{margin-top:0;height:100%}
+.localcard .lt{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:8px}
+.localcard .lrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.localcard input[type=file]{flex:1;min-width:200px;color:var(--tx);font-size:13px;
+  background:#0f172a;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.localcard .hint{margin-top:6px}
+.localcard .rad{margin-top:8px}
+/* 确认弹窗 */
+.modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:120;padding:16px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:22px 24px;max-width:430px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 10px;color:#f87171;font-size:17px}
+.modal p{margin:0 0 18px;color:#cbd5e1;line-height:1.7;font-size:14px;white-space:pre-line}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns .btn{min-width:100px}
+
+/* 实时日志 */
+.logpanel{background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:10px;height:58vh;overflow-y:auto;
+          font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.7}
+.lrow{display:flex;gap:10px;padding:2px 6px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.lrow:nth-child(odd){background:rgba(255,255,255,.025)}
+.lrow .lt{color:#64748b;flex:none}
+.lrow .ld{flex:none;font-weight:600}
+.lrow.tx .ld{color:#f59e0b}
+.lrow.rx .ld{color:#38bdf8}
+.lrow .ldata{color:#e2e8f0}
+
+/* 开关 */
+.switch{position:relative;display:inline-block;width:50px;height:28px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--line);border-radius:28px;transition:.2s;cursor:pointer}
+.slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--acc)}
+.switch input:checked+.slider:before{transform:translateX(22px)}
+.authline{display:flex;align-items:center;gap:12px;justify-content:center;margin:0 0 8px;color:var(--mut);font-size:13px}
+
+.rolebar{display:inline-block;margin-left:10px;padding:3px 10px;border-radius:999px;font-size:12px;background:#14532d;color:#bbf7d0}.rolebar.rolegray{background:#3f3f46;color:#a1a1aa}.hidden{display:none !important}</style>
+</head>
+<body>
+<header class="top">
+  <h1><span data-i18n="ota.title">固件升级</span></h1>
+  <div class="sp"></div>
+  <div class="lang" id="langBtns"></div>
+  <nav>
+    <a href="index.html" data-i18n="nav.overview">总览</a>
+    <a href="wifi.html" data-i18n="nav.wifi">WiFi</a>
+    <a href="ota.html" data-i18n="nav.ota">升级</a>
+    <a href="log.html" data-i18n="nav.term">终端</a>
+    <a href="events.html" data-i18n="nav.evlog">日志</a>
+    <a href="login.html" data-i18n="nav.login">登录设置</a>
+    <a href="#" onclick="logout()" data-i18n="nav.logout">退出</a>
+  <span class="rolebar" id="roleBar" style="display:none"></span></nav>
+</header>
+
+<!-- ESP32 -->
+<div class="row">
+  <h2 data-i18n="ota.esp32">ESP32 控制器</h2>
+
+  <div class="sectiontitle" data-i18n="ota.onlineTitle">在线升级</div>
+  <div class="onlinegrid">
+    <div class="onlinecard">
+      <h3 data-i18n="ota.appTitle">APP 固件</h3>
+      <div class="kv lg">
+        <b data-i18n="ota.cur">当前固件</b><span id="curVer">-</span>
+        <b data-i18n="ota.latest">最新固件</b><span id="latVer">-</span>
+      </div>
+      <div class="lrow">
+        <button class="btn acc" data-i18n="ota.check" onclick="check()">检测更新</button>
+        <button class="btn" id="btnEsp" data-i18n="ota.upgrade" onclick="upgradeEsp()" data-w disabled>在线升级</button>
+      </div>
+      <div id="espProg" style="display:none">
+        <div class="pinfo"><span id="espState"></span><span id="espPct">0%</span></div>
+        <div class="pbar"><div id="espBar"></div></div>
+      </div>
+    </div>
+
+    <div class="onlinecard">
+      <h3 data-i18n="ota.fsTitle">ESP32 页面（FS）</h3>
+      <div class="kv lg">
+        <b data-i18n="ota.fsCur">当前页面</b><span id="fsCur">-</span>
+        <b data-i18n="ota.fsLatest">最新页面</b><span id="fsLat">-</span>
+      </div>
+      <div class="lrow">
+        <button class="btn acc" data-i18n="ota.check" onclick="check()">检测更新</button>
+        <button class="btn" id="btnFs" data-i18n="ota.fsUp" onclick="upgradeFs()" data-w disabled>在线升级</button>
+      </div>
+      <div id="fsProg" style="display:none">
+        <div class="pinfo"><span id="fsState"></span><span id="fsPct">0%</span></div>
+        <div class="pbar"><div id="fsBar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sectiontitle" data-i18n="ota.localTitle">本地升级</div>
+  <div class="localgrid">
+  <div class="localcard">
+    <div class="lt" data-i18n="ota.localBtn">本地上传 .bin 升级</div>
+    <div class="lrow">
+      <input type="file" id="espBin" accept=".bin">
+    </div>
+    <label class="rad"><input type="checkbox" id="forceEsp"><span data-i18n="ota.force">强制升级（允许降级/同版本）</span></label>
+    <div class="lrow">
+      <button class="btn" id="btnEspLocal" data-i18n="ota.localBtn" onclick="upgradeEspLocal()" data-w>本地上传 .bin 升级</button>
+    </div>
+    <div class="hint" data-i18n="ota.localHint">选择 ESP32 OTA .bin（DDFC_*_OTA.bin），分片写入，期间请勿断电。</div>
+    <div id="espLocalProg" style="display:none">
+      <div class="pinfo"><span id="espLocalState"></span><span id="espLocalPct">0%</span></div>
+      <div class="pbar"><div id="espLocalBar"></div></div>
+    </div>
+  </div>
+
+  <div class="localcard">
+    <div class="lt" data-i18n="ota.localFsBtn">本地上传 .bin 升级页面</div>
+    <div class="lrow">
+      <input type="file" id="fsBin" accept=".bin">
+    </div>
+    <label class="rad"><input type="checkbox" id="forceFs"><span data-i18n="ota.force">强制升级（允许降级/同版本）</span></label>
+    <div class="lrow">
+      <button class="btn" id="btnFsLocal" data-i18n="ota.localFsBtn" onclick="upgradeFsLocal()" data-w>本地上传 .bin 升级页面</button>
+    </div>
+    <div class="hint" data-i18n="ota.localFsHint">选择页面 FS .bin（DDFC_*_FS.bin），分片写入 LittleFS，期间请勿断电。</div>
+    <div id="fsLocalProg" style="display:none">
+      <div class="pinfo"><span id="fsLocalState"></span><span id="fsLocalPct">0%</span></div>
+      <div class="pbar"><div id="fsLocalBar"></div></div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- 飞达设备：只保留最新版本 + 检测更新 -->
+<div class="row">
+  <h2 data-i18n="ota.device">飞达设备</h2>
+  <div class="kv lg">
+    <b data-i18n="ota.latest">最新版本</b><span id="devLatest">-</span>
+  </div>
+  <button class="btn" id="btnDevCheck" data-i18n="ota.check" onclick="checkDev()">检测更新</button>
+</div>
+
+<div class="log" id="log"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* 延迟加载 app.js: 不在 HTML 源码中写 <script src> -> preload scanner 不会提前并发下载;
+   DOMContentLoaded 后才动态加载, 全程单请求, 避免 ESP32 单线程 WebServer 并发 reset */
+(function(){
+  var done = false;
+  function boot(){
+    if (done) return; done = true;
+  /* 当前固件/页面版本权威来源: /api/status (GitHub 连不上也显示) */
+  api('/api/status').then(d => {
+    $('curVer').textContent = (d && d.fw) || '-';
+    $('fsCur').textContent = (d && d.fsver) || '-';   // 当前页面版本(LittleFS /fsver.txt)
+  }).catch(() => { $('curVer').textContent = '-'; $('fsCur').textContent = '-'; });
+  check();
+  checkDev();
+  }
+  var s = document.createElement('script');
+  s.src = '/js/app.js?v=63';
+  s.onload = boot;
+  s.onerror = boot;
+  document.addEventListener('DOMContentLoaded', function(){ document.head.appendChild(s); });
+})();
+</script>
+<script>
+/* 兜底: 即使 /js/app.js 加载失败，本页也独立可用 */
+window.$ = window.$ || (id => document.getElementById(id));
+window.toast = window.toast || ((msg, isErr) => {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+});
+window.t = window.t || ((k) => ({
+  'nav.overview':'总览','nav.wifi':'WiFi','nav.ota':'升级','nav.term':'终端','nav.evlog':'日志','nav.debug':'调测','nav.logout':'退出',
+  'ota.title':'固件升级','ota.esp32':'ESP32 控制器','ota.device':'飞达设备',
+  'ota.cur':'当前固件','ota.latest':'最新固件','ota.check':'检测更新','ota.upgrade':'升级固件',
+  'ota.fsCur':'当前页面','ota.fsLatest':'最新页面','ota.fsUp':'升级页面','ota.fsFound':'页面有更新',
+  'ota.addr':'飞达地址','ota.devup':'飞达升级页','ota.none':'无','ota.n99Refresh':'刷新 N99','ota.n99Manual':'手动 N99',
+  'ota.onlineTitle':'在线升级','ota.localTitle':'本地升级','ota.appTitle':'APP 固件','ota.fsTitle':'ESP32 页面（FS）','ota.localBtn':'本地上传 .bin 升级','ota.localHint':'选择 ESP32 OTA .bin（DDFC_*_OTA.bin），分片写入，期间请勿断电。',
+  'ota.force':'强制升级（允许降级/同版本）','ota.localFsBtn':'本地上传 .bin 升级页面','ota.localFsHint':'选择页面 FS .bin（DDFC_*_FS.bin），分片写入 LittleFS，期间请勿断电。',
+  'ota.devFound':'发现新飞达固件包，可逐个选择升级','ota.devNone':'暂无飞达固件包',
+  'ota.uptodate':'已是最新版本','ota.found':'发现新版本','ota.upgrading':'升级中…',
+  'ota.progress':'进度','ota.state.idle':'空闲','ota.state.downloading':'下载中',
+  'ota.state.flashing':'烧写中','ota.state.done':'完成','ota.state.error':'失败',
+  'ota.confirmEsp':'确认升级 ESP32 固件？期间设备会重启。','ota.confirmFs':'确认升级 Web 页面？页面文件将被替换，期间短暂重启。','ota.confirmDev':'确认升级该飞达固件？',
+  'ota.needCheck':'请先点击「检测更新」',
+  'unlock.unlocked':'已解锁','unlock.locked':'已锁定','unlock.lockBtn':'锁定','unlock.unlockBtn':'解锁操作',
+  'unlock.title':'解锁操作','unlock.warn':'解锁后将允许向 485 总线发送控制指令。\n请务必先停止贴片机飞达的当前动作，否则会导致动作混乱！',
+  'unlock.btn':'确认解锁','unlock.cancel':'取消','unlock.fail':'解锁失败','unlock.need':'请先解锁操作'
+}[k] || k));
+window.api = window.api || (async (path, opts = {}) => {
+  const o = Object.assign({}, opts);
+  o.headers = Object.assign({ 'X-Auth-Token': (new URLSearchParams(location.search).get('token') || localStorage.getItem('token') || '') }, opts.headers || {});
+  if (o.body && typeof o.body === 'object' && !(o.body instanceof FormData) && !(o.body instanceof Blob)) {
+    o.headers['Content-Type'] = 'application/json';
+    o.body = JSON.stringify(o.body);
+  }
+  const ac = new AbortController();
+  const tm = setTimeout(() => ac.abort(), 10000);
+  try {
+    const r = await fetch(path, Object.assign({}, o, { signal: ac.signal }));
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+    return await r.json();
+  } finally { clearTimeout(tm); }
+});
+window.updateUnlockBar = window.updateUnlockBar || (() => {
+  const on = document.getElementById('unlockOn'), off = document.getElementById('unlockOff'), btn = document.getElementById('unlockBtn');
+  const u = !!window.__unlocked;
+  if (on) { on.style.display = u ? '' : 'none'; on.textContent = '已解锁'; }
+  if (off) { off.style.display = u ? 'none' : ''; off.textContent = '已锁定'; }
+  if (btn) { btn.textContent = u ? '锁定' : '解锁操作'; btn.className = 'btn sm ' + (u ? '' : 'warn'); }
+});
+window.pollUnlock = window.pollUnlock || (async () => {
+  try {
+    const d = await window.api('/api/unlock/status');
+    window.__unlocked = !!(d && d.unlocked);
+    window.updateUnlockBar();
+  } catch (e) {}
+});
+window.ensureUnlock = window.ensureUnlock || (async (force) => {
+  /* 设备重启后服务端解锁状态会清零，不能只信 JS 变量 */
+  try {
+    const st = await window.api('/api/unlock/status');
+    if (st && st.unlocked) { window.__unlocked = true; window.updateUnlockBar(); return true; }
+    window.__unlocked = false;
+  } catch (e) {}
+  if (window.__unlocked && !force) return true;
+  const ok = await confirmModal(t('unlock.title'), t('unlock.warn'), t('unlock.btn'), t('unlock.cancel'));
+  if (!ok) return false;
+  try {
+    const r = await window.api('/api/unlock?unlocked=1', { method: 'POST', headers: { 'X-Unlock': '1' } });
+    if (r && r.ok && r.unlocked) { window.__unlocked = true; window.updateUnlockBar(); return true; }
+  } catch (e) {}
+  return false;
+});
+window.unlockSilent = window.unlockSilent || (async () => {
+  try {
+    const r = await window.api('/api/unlock?unlocked=1', { method: 'POST', headers: { 'X-Unlock': '1' } });
+    if (r && r.ok && r.unlocked) { window.__unlocked = true; window.updateUnlockBar(); return true; }
+  } catch (e) {}
+  return false;
+});
+
+window.toggleUnlock = window.toggleUnlock || (async () => {
+  if (window.__unlocked) {
+    window.__unlocked = false;
+    try { await window.api('/api/unlock?unlocked=0', { method: 'POST', headers: { 'X-Unlock': '0' } }); } catch (e) {}
+    window.updateUnlockBar();
+  } else { await window.ensureUnlock(); }
+});
+window.__unlocked = window.__unlocked || false;
+window.logout = window.logout || (async () => {
+  try { await window.api('/api/logout', { method: 'POST' }); } catch (e) {}
+  localStorage.removeItem('token');
+  location.href = '/login.html';
+});
+
+let latest = null;
+const logEl = $('log');
+function log(s) { logEl.textContent += s + '\n'; logEl.scrollTop = logEl.scrollHeight; }
+function setBar(kind, show, pct, stateTxt) {
+  $(kind + 'Prog').style.display = show ? 'block' : 'none';
+  $(kind + 'Bar').style.width = pct + '%';
+  $(kind + 'Pct').textContent = pct + '%';
+  $(kind + 'State').textContent = stateTxt || '';
+}
+
+async function check() {
+  try {
+    const d = await api('/api/ota/check');
+    latest = d;
+    $('curVer').textContent = d.cur_esp ? fmtVer(d.cur_esp) : '-';   // 连不上 GitHub 也刷新当前版本
+    log('当前 ESP32 版本: ' + ($('curVer').textContent || '-'));
+    $('fsCur').textContent = d.cur_fs || $('fsCur').textContent;   // 有则更新, 无则保留 boot 值
+    $('latVer').textContent = d.esp32_ver || d.latest || t('ota.none');
+    $('fsCur').textContent = d.cur_fs || t('ota.none');
+    $('fsLat').textContent = d.fs_ver || t('ota.none');
+    if ($('btnEsp')) $('btnEsp').disabled = !(d.ok && d.need_esp32);
+    if ($('btnFs')) $('btnFs').disabled = !(d.ok && d.need_fs);
+    let m = d.ok ? (d.need_esp32 ? t('ota.found') + ' v' + d.esp32_ver : t('ota.uptodate')) : d.msg;
+    if (d.ok && d.need_fs) m += ' · ' + t('ota.fsFound');
+    toast(m, !d.ok);
+    log(d.ok ? ('release=' + d.latest + ' esp_ver=' + (d.esp32_ver || '-') + ' fs=' + d.fs_url) : d.msg);
+  } catch (e) {}
+}
+
+async function _otaPost(path, headers, timeoutMs) {
+  const tm = timeoutMs || 12000;
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), tm);
+  try {
+    const r = await fetch(path, { method: 'POST', headers, signal: ac.signal });
+    if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthorized'); }
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+function fmtVer(v) {
+  if (!v) return '未知';
+  if (v.length === 10) v = v.slice(2);   // 2026103129 -> 26103129
+  return v.slice(0, 4) + '.' + v.slice(4);
+}
+
+function extractFwVer(buf, fileName) {
+  try {
+    const txt = new TextDecoder('latin1').decode(buf);
+    const m = /DDfeeder(\d{8}\d{1,4})/.exec(txt);
+    if (m) return m[1].slice(2);           // 2026103125 -> 26103125
+  } catch (e) {}
+  const n = /DDFC_(\d{8,})_OTA\.bin/i.exec(fileName || '');
+  return n ? n[1] : '';
+}
+
+function extractFsVer(fileName) {
+  const n = /DDFC_([0-9a-f]{8,})_FS\.bin/i.exec(fileName || '');
+  return n ? n[1] : '';
+}
+
+async function _otaPostRetry(path, headers, timeoutMs, tries) {
+  let last;
+  for (let i = 0; i < (tries || 4); i++) {
+    try { return await _otaPost(path, headers, timeoutMs); }
+    catch (e) { last = e; await new Promise(r => setTimeout(r, 400 + i * 400)); }
+  }
+  throw last;
+}
+
+function validateEspFile(f, buf) {
+  if (!/DDFC_.*_OTA\.bin$/i.test(f.name)) throw new Error('文件名不是 DDFC_*_OTA.bin');
+  if (f.size < 100000 || f.size > 2000000) throw new Error('文件大小异常: ' + f.size);
+  if (buf[0] !== 0xE9) throw new Error('不是 ESP32 镜像（首字节不是 0xE9）');
+}
+
+function validateFsFile(f, buf) {
+  if (!/DDFC_.*_FS\.bin$/i.test(f.name)) throw new Error('文件名不是 DDFC_*_FS.bin');
+  if (f.size < 65536 || f.size > 1048576) throw new Error('文件大小异常: ' + f.size);
+  let head = '';
+  for (let i = 0; i < Math.min(64, buf.length); i++) head += String.fromCharCode(buf[i]);
+  if (!head.includes('littlefs')) throw new Error('不是 LittleFS 页面镜像');
+}
+
+async function upgradeEspLocal() {
+  const f = $('espBin').files[0];
+  if (!f) { toast('请选择 .bin 文件', true); return; }
+  if (!(await confirmModal(t('ota.title'), t('ota.confirmEsp'), t('ota.upgrade'), t('unlock.cancel')))) return;
+  if (!(await ensureUnlock())) { toast(t('unlock.need'), true); return; }
+  const tok = localStorage.getItem('token') || '';
+  const total = f.size;
+  try {
+    const buf = new Uint8Array(await f.arrayBuffer());
+    validateEspFile(f, buf);
+    const ver = extractFwVer(buf, f.name);
+    setBar('espLocal', true, 0, '本地固件写入中…');
+    log('本地升级: ' + f.name + ' (' + total + ' bytes)');
+    log('固件版本: ' + fmtVer(ver) + (($('forceEsp') && $('forceEsp').checked) ? '（强制）' : ''));
+    const forceEsp = !!($('forceEsp') && $('forceEsp').checked);
+    try {
+      const st = await api('/api/status');
+      const cur = st && st.fw ? st.fw : '';
+      if (cur && !forceEsp && ver && parseInt(ver, 10) <= parseInt(fmtVer(cur).replace('.', ''), 10)) {
+        throw new Error('版本不高于当前 ' + fmtVer(cur) + '，请勾选强制升级');
+      }
+    } catch (e) { if (e && e.message && e.message.indexOf('版本不高于') >= 0) throw e; }
+    let d = await _otaPost('/api/ota/esp32/local/begin',
+      { 'X-Auth-Token': tok, 'X-Ota-Total': String(total), 'X-Target-Ver': ver, 'X-Force': forceEsp ? '1' : '0' }, 15000);
+    if (!d.ok) throw new Error(d.msg || 'begin failed');
+    const CH = 1024;
+    let lastPct = -1;
+    let off = 0;
+    while (off < total) {
+      const n = Math.min(CH, total - off);
+      let hex = '';
+      for (let i = 0; i < n; i++) hex += buf[off + i].toString(16).padStart(2, '0');
+      d = await _otaPostRetry('/api/ota/esp32/local/chunk',
+        { 'X-Auth-Token': tok, 'X-Ota-Off': String(off), 'X-Chunk': hex }, 20000);
+      if (!d.ok) throw new Error(d.msg || 'chunk failed');
+      if (d.offset !== undefined) off = d.offset;
+      else off += n;
+      const pct = Math.round(off * 100 / total);
+      setBar('espLocal', true, pct, '本地固件写入中…');
+      if (pct >= lastPct + 10) { lastPct = pct; log('写入 ' + pct + '%'); }
+    }
+    log('写入 100%');
+    d = await _otaPost('/api/ota/esp32/local/end', { 'X-Auth-Token': tok }, 15000);
+    if (!d.ok) throw new Error(d.msg || 'end failed');
+    log('校验通过，提交重启…');
+    toast(t('ota.upgrading'));
+    poll('esp');
+    setTimeout(verifyEspVersion, 3500);
+  } catch (e) {
+    try { await _otaPost('/api/ota/esp32/local/abort', { 'X-Auth-Token': tok }, 5000); } catch (e2) {}
+    log('本地升级失败: ' + e.message);
+    toast(t('ota.state.error') + ': ' + e.message, true);
+    setBar('espLocal', false, 0);
+  }
+}
+
+async function upgradeFsLocal() {
+  const f = $('fsBin').files[0];
+  if (!f) { toast('请选择 FS .bin 文件', true); return; }
+  if (!(await confirmModal(t('ota.title'), t('ota.confirmFs'), t('ota.fsUp'), t('unlock.cancel')))) return;
+  if (!(await ensureUnlock())) { toast(t('unlock.need'), true); return; }
+  const tok = localStorage.getItem('token') || '';
+  const total = f.size;
+  const fsver = extractFsVer(f.name);
+  try {
+    const buf = new Uint8Array(await f.arrayBuffer());
+    validateFsFile(f, buf);
+    setBar('fsLocal', true, 0, '本地页面写入中…');
+    log('本地页面: ' + f.name + ' (' + total + ' bytes)');
+    log('页面版本: ' + (fsver || '未知') + (($('forceFs') && $('forceFs').checked) ? '（强制）' : ''));
+    const forceFs = !!($('forceFs') && $('forceFs').checked);
+    try {
+      const st = await api('/api/status');
+      if (st && st.fsver && !forceFs && fsver === st.fsver) {
+        throw new Error('页面版本相同，请勾选强制升级');
+      }
+    } catch (e) { if (e && e.message && e.message.indexOf('页面版本相同') >= 0) throw e; }
+    let d = await _otaPost('/api/ota/fs/local/begin',
+      { 'X-Auth-Token': tok, 'X-Ota-Total': String(total), 'X-Target-Fs': fsver, 'X-Force': forceFs ? '1' : '0' }, 15000);
+    if (!d.ok && d.msg === 'locked') {
+      if (await ensureUnlock()) {
+        d = await _otaPost('/api/ota/fs/local/begin',
+          { 'X-Auth-Token': tok, 'X-Ota-Total': String(total), 'X-Target-Fs': fsver, 'X-Force': forceFs ? '1' : '0' }, 15000);
+      }
+    }
+    if (!d.ok) throw new Error(d.msg || 'begin failed');
+    const CH = 1024;
+    let lastPct = -1;
+    let off = 0;
+    while (off < total) {
+      const n = Math.min(CH, total - off);
+      let hex = '';
+      for (let i = 0; i < n; i++) hex += buf[off + i].toString(16).padStart(2, '0');
+      d = await _otaPostRetry('/api/ota/fs/local/chunk',
+        { 'X-Auth-Token': tok, 'X-Ota-Off': String(off), 'X-Chunk': hex }, 20000);
+      if (!d.ok) throw new Error(d.msg || 'chunk failed');
+      if (d.offset !== undefined) off = d.offset;
+      else off += n;
+      const pct = Math.round(off * 100 / total);
+      setBar('fsLocal', true, pct, '本地页面写入中…');
+      if (pct >= lastPct + 10) { lastPct = pct; log('写入 ' + pct + '%'); }
+    }
+    log('写入 100%');
+    d = await _otaPost('/api/ota/fs/local/end', { 'X-Auth-Token': tok }, 15000);
+    if (!d.ok) throw new Error(d.msg || 'end failed');
+    log('校验通过，提交重启…');
+    toast(t('ota.upgrading'));
+    poll('fs');
+    setTimeout(verifyFsVersion, 3500);
+  } catch (e) {
+    try { await _otaPost('/api/ota/fs/local/abort', { 'X-Auth-Token': tok }, 5000); } catch (e2) {}
+    log('本地页面升级失败: ' + e.message);
+    toast(t('ota.state.error') + ': ' + e.message, true);
+    setBar('fsLocal', false, 0);
+  }
+}
+
+async function verifyFsVersion() {
+  const tok = localStorage.getItem('token') || '';
+  for (let i = 0; i < 15; i++) {
+    try {
+      const r = await fetch('/api/status', { headers: { 'X-Auth-Token': tok } });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.fsver) {
+          $('fsCur').textContent = d.fsver;
+          log('升级后页面版本: ' + d.fsver);
+          toast('页面升级完成: ' + d.fsver);
+          return;
+        }
+      }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  log('页面版本读取失败，请刷新页面确认');
+}
+
+async function upgradeEsp() {
+  if (latest && !latest.need_esp32) { toast(t('ota.uptodate')); return; }
+  if (!(await confirmModal(t('ota.title'), t('ota.confirmEsp'), t('ota.upgrade'), t('unlock.cancel')))) return;
+  if (!(await ensureUnlock())) { toast(t('unlock.need'), true); return; }   // 写操作前置解锁(缺此步 403 locked 被静默)
+  try {
+    const d = await api('/api/ota/esp32', { method: 'POST', timeout: 15000 });
+    if (!d.ok) { toast(d.msg || t('ota.state.error'), true); return; }      // 关键: 检查 ok, 失败不再假"升级中"
+    setBar('esp', true, 0, t('ota.upgrading'));
+    poll('esp');
+  } catch (e) { errToast(e); }
+}
+
+async function upgradeFs() {
+  if (latest && !latest.need_fs) { toast(t('ota.uptodate')); return; }
+  if (!(await confirmModal(t('ota.title'), t('ota.confirmFs'), t('ota.fsUp'), t('unlock.cancel')))) return;
+  if (!(await ensureUnlock())) { toast(t('unlock.need'), true); return; }
+  try {
+    const d = await api('/api/ota/fs', { method: 'POST', timeout: 15000 });
+    if (!d.ok) { toast(d.msg || t('ota.state.error'), true); return; }
+    setBar('fs', true, 0, t('ota.upgrading'));
+    poll('fs');
+  } catch (e) { errToast(e); }
+}
+
+async function checkDev() {
+  const btn = $('btnDevCheck');
+  if (btn) btn.disabled = true;
+  try {
+    const d = latest || await api('/api/ota/check');
+    const v = d && d.device_ver ? d.device_ver : '';
+    $('devLatest').textContent = v || t('ota.none');
+    if (v) { toast('飞达最新版本 ' + v); log('飞达最新版本: ' + v); }
+    else { toast(t('ota.devNone'), true); log('GitHub 暂无飞达固件版本'); }
+  } catch (e) {
+    $('devLatest').textContent = t('ota.none');
+    toast(t('ota.devNone'), true);
+  }
+  if (btn) btn.disabled = false;
+}
+
+async function upgradeDev() {
+  const sel = $('devSlot');
+  const o = sel && sel.selectedOptions[0];
+  if (!o) { toast(t('ota.addr'), true); return; }
+  const chip = parseInt(o.dataset.chip || '0', 10) || 0;
+  const t0 = new URLSearchParams(location.search).get('token');
+  if (chip) {
+    location.href = 'feeder_upgrade.html?chipid=' + chip + (t0 ? ('&token=' + t0) : '');
+    return;
+  }
+  const addr = parseInt(o.value);
+  if (isNaN(addr) || addr < 0 || addr > 63) { toast(t('ota.addr'), true); return; }
+  location.href = 'feeder_upgrade.html?addr=' + addr + (t0 ? ('&token=' + t0) : '');
+}
+
+function useN99Ota() {
+  const v = parseInt(($('n99Chip').value || '').replace(/[^0-9a-f]/gi, ''), 16) || 0;
+  if (!v) { toast('输入 6 位 ChipID', true); return; }
+  const sel = $('devSlot');
+  const o = document.createElement('option');
+  o.value = 'T' + v;
+  o.dataset.chip = String(v);
+  o.dataset.addr = '99';
+  o.textContent = '临时 N99 · ' + cidHex(v);
+  [...sel.options].filter(x => x.dataset.chip === String(v)).forEach(x => x.remove());
+  sel.appendChild(o);
+  sel.value = o.value;
+  toast('已选择 N99 ' + cidHex(v));
+}
+
+async function refreshN99() {
+  try {
+    await api('/api/scan', { method: 'POST' });
+    await new Promise(r => setTimeout(r, 1200));
+    const d = await api('/api/feeders');
+    fillSlotSelect(d);
+    toast('N99 已刷新');
+  } catch (e) { toast('扫描失败', true); }
+}
+
+/* 重启后回读 ESP32 版本，确认本地包确实生效 */
+async function verifyEspVersion() {
+  const tok = localStorage.getItem('token') || '';
+  for (let i = 0; i < 15; i++) {
+    try {
+      const r = await fetch('/api/status', { headers: { 'X-Auth-Token': tok } });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.fw) {
+          $('curVer').textContent = d.fw;
+          log('升级后 ESP32 版本: ' + fmtVer(d.fw));
+          toast('升级完成，当前版本 ' + fmtVer(d.fw));
+          return;
+        }
+      }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  log('升级后版本读取失败，请刷新页面确认');
+}
+
+async function poll(kind) {
+  try {
+    const d = await api('/api/ota/progress');
+    const isMine = (kind === 'esp' && d.kind === 'esp32') || (kind === 'dev' && d.kind === 'device') || (kind === 'fs' && d.kind === 'fs');
+    const stKey = 'ota.state.' + d.state;
+    if (isMine) {
+      setBar(kind, true, d.progress, t(stKey) + (d.msg ? ' · ' + d.msg : ''));
+      if (d.state === 'done') { toast(t('ota.state.done')); log(d.msg); setBar(kind, false, 100); return; }
+      if (d.state === 'error') { toast(t('ota.state.error') + ': ' + d.msg, true); log('ERR ' + d.msg); setBar(kind, false, 0); return; }
+    }
+    setTimeout(() => poll(kind), 600);
+  } catch (e) {
+    console.warn('ota poll failed', e);        // 失败即停, 不再无限重试占用连接
+    toast(t('ota.state.error'), true);
+    setBar(kind, false, 0);
+  }
+}
+
+
+/* 填充飞达地址下拉框: 列出在线飞达地址(0~63)，全离线时列出全部
+   在线设备显示固件版本(FW)供升级判断: "地址 5 ✓ FW:26.10" */
+function fillSlotSelect(data) {
+  const sel = $('devSlot');
+  if (!sel) return;
+  const feeders = data && data.feeders ? data.feeders : (Array.isArray(data) ? data : []);
+  const temp = (data && data.temp) ? data.temp : [];
+  const keep = sel.value;
+  sel.innerHTML = '';
+  const online = feeders.filter(f => f.present);
+  const list = online.length ? online : Array.from({ length: 64 }, (_, i) => ({ addr: i, present: false, fw: 0 }));
+  for (const f of list) {
+    const o = document.createElement('option');
+    o.value = f.addr;
+    o.dataset.chip = f.chipid || '';
+    o.dataset.addr = f.addr;
+    let txt = t('ota.addr') + ' ' + f.addr + (f.present ? ' ✓' : '');
+    if (f.fw && f.fw > 0) txt += ' FW:' + fmtFw(f.fw);
+    o.textContent = txt;
+    sel.appendChild(o);
+  }
+  for (const f of temp) {
+    if (!f || !f.chipid) continue;
+    const o = document.createElement('option');
+    o.value = 'T' + f.chipid;
+    o.dataset.chip = String(f.chipid);
+    o.dataset.addr = '99';
+    o.textContent = '临时 N99 · ' + cidHex(f.chipid) + (f.boot ? ' · BL' : '');
+    sel.appendChild(o);
+  }
+  if (keep && [...sel.options].some(o => o.value === keep)) sel.value = keep;
+  else if (sel.options.length) sel.value = sel.options[0].value;
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
